@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from app.queries import paged_table, get_one_by_public_id
 from app.services.stats import stats_payload, chart_payload, featured_records
@@ -16,10 +15,8 @@ from app.services.entities import (
     list_mags,
     list_structures,
 )
-from app.template_filters import register_template_filters
+from app.templates_env import templates
 
-templates=Jinja2Templates(directory='app/templates')
-register_template_filters(templates)
 router=APIRouter(default_response_class=HTMLResponse)
 
 @router.get('/')

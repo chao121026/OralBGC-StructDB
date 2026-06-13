@@ -1,7 +1,7 @@
 import re
 
 
-def short_identifier(value: str | None) -> str:
+def short_id(value: str | None) -> str:
     if not value:
         return "Not available"
     text = str(value)
@@ -24,7 +24,7 @@ def human_label(value: str | None) -> str:
     return " ".join(words)
 
 
-def format_measurement(value, digits: int = 1) -> str:
+def fmt_measure(value, digits: int = 1) -> str:
     if value in {None, ""}:
         return "Not available"
     try:
@@ -35,6 +35,7 @@ def format_measurement(value, digits: int = 1) -> str:
 
 
 def register_template_filters(templates) -> None:
-    templates.env.filters["short_id"] = short_identifier
+    templates.env.filters["short_id"] = short_id
     templates.env.filters["human_label"] = human_label
-    templates.env.filters["fmt_measure"] = format_measurement
+    templates.env.filters["humanize_label"] = human_label
+    templates.env.filters["fmt_measure"] = fmt_measure

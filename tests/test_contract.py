@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.main import templates
 
 
 def test_health_endpoint_reports_ok():
@@ -96,3 +97,15 @@ def test_protein_detail_contains_contained_viewer_loading_state_and_short_id():
     assert 'identifier-block' in html
     assert 'region001 · cds11' in html
     assert 'PHRC|CM_NA0009364731' in html
+
+
+def test_custom_jinja_filters_registered():
+    for filter_name in ['short_id', 'human_label', 'humanize_label', 'fmt_measure']:
+        assert filter_name in templates.env.filters
+
+
+def test_exact_reported_protein_detail_route_renders():
+    client = TestClient(app)
+    response = client.get('/proteins/PHRC%7CCH_NA0008303945_S123_metawrap_50_10_bins_metawrap_50_10_bins_bin.4_CH_NA0008303945_S123_contig_138_region001_cds15')
+    assert response.status_code == 200
+    assert 'region001 · cds15' in response.text
