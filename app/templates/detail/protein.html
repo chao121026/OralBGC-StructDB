@@ -1,15 +1,14 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% import "components/macros.html" as ui %}
 {% block head %}{% if protein.structure_available == '1' %}<script src="https://3Dmol.org/build/3Dmol-min.js"></script>{% endif %}{% endblock %}
 {% block content %}
 <section class="record-hero">
   <div class="page-shell">
     <p class="breadcrumb-line"><a href="/proteins">Proteins</a> / <span class="mono">{{ protein.public_protein_id|short_id }}</span></p>
     <h1>{{ protein.product or 'BGC protein' }}</h1>
-    <div class="identifier-block">
-      <strong>{{ protein.public_protein_id|short_id }}</strong>
-      <span class="mono" title="{{ protein.public_protein_id }}">{{ protein.public_protein_id }}</span>
+    <div class="identifier-block compact-identifiers">
+      {{ ui.identifier_row('Public ID', protein.public_protein_id) }}
+      {{ ui.identifier_row('Original query', protein.query) }}
     </div>
-    <p class="mono break-id">{{ protein.query }}</p>
     <div class="record-meta">
       <span class="badge-token">PHRC</span>
       <span>{{ protein.sequence_length }} aa</span>
@@ -23,6 +22,7 @@
   <div class="viewer-panel">
     <div class="viewer-toolbar"><strong>Predicted structure viewer</strong>{% if protein.structure_available == '1' %}<a class="btn btn-sm btn-primary" href="/structures/cif/{{ protein.public_protein_id }}">Download CIF</a>{% endif %}</div>
     {% if protein.structure_available == '1' %}
+    <div class="viewer-controls" role="toolbar" aria-label="Structure viewer controls"><button type="button" data-viewer-action="reset">Reset</button><button type="button" data-viewer-action="spin">Spin</button><button type="button" data-viewer-action="cartoon">Cartoon</button><button type="button" data-viewer-action="surface">Surface</button><button type="button" data-viewer-action="plddt">pLDDT</button><button type="button" data-viewer-action="fullscreen">Fullscreen</button></div>
     <div id="viewer" class="structure-viewer" data-cif="/structures/cif/{{ protein.public_protein_id }}"><div class="structure-loading">Loading predicted structure...</div></div>
       {% if protein.af3_qc_available != '1' and protein.foldseek_annotation_available != '1' %}
       <p class="status-note">Predicted structure available; AF3 QC and Foldseek annotations are not yet available in this release.</p>

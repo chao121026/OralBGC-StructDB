@@ -9,3 +9,11 @@
 {% macro status_badge(text, state='neutral') -%}
 <span class="badge-token {{ 'ok' if state == 'ok' else 'muted-badge' if state == 'muted' else '' }}">{{ text }}</span>
 {%- endmacro %}
+
+{% macro identifier_row(label, value) -%}
+<div class="identifier-row">
+  <span class="identifier-label">{{ label }}</span>
+  <span class="mono identifier-value" title="{{ value }}"><span class="sr-only">{{ value }}</span><span aria-hidden="true">{{ value|short_id }}</span></span>
+  <button class="copy-button" type="button" data-copy-value="{{ value|e }}" aria-label="Copy {{ label }}">Copy</button>
+</div>
+{%- endmacro %}

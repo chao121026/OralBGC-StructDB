@@ -95,7 +95,7 @@ def test_protein_detail_contains_contained_viewer_loading_state_and_short_id():
     assert 'class="structure-viewer"' in html
     assert 'structure-loading' in html
     assert 'identifier-block' in html
-    assert 'region001 · cds11' in html
+    assert 'PHRC|...|region001|cds11' in html
     assert 'PHRC|CM_NA0009364731' in html
 
 
@@ -108,4 +108,25 @@ def test_exact_reported_protein_detail_route_renders():
     client = TestClient(app)
     response = client.get('/proteins/PHRC%7CCH_NA0008303945_S123_metawrap_50_10_bins_metawrap_50_10_bins_bin.4_CH_NA0008303945_S123_contig_138_region001_cds15')
     assert response.status_code == 200
-    assert 'region001 · cds15' in response.text
+    assert 'PHRC|...|region001|cds15' in response.text
+
+
+def test_visual_polish_contracts_render():
+    client = TestClient(app)
+
+    home = client.get('/').text
+    assert 'class="metric-section core-metrics"' in home
+    assert 'class="metric-section coverage-metrics"' in home
+    assert 'chart-scroll' in home
+
+    proteins = client.get('/proteins').text
+    assert '<details class="protein-card-extra">' in proteins
+    assert 'data-label="Detail"' in proteins
+
+    protein_id = 'PHRC|CH_NA0008303945_S123_metawrap_50_10_bins_metawrap_50_10_bins_bin.4_CH_NA0008303945_S123_contig_138_region001_cds15'
+    detail = client.get('/proteins/' + protein_id).text
+    assert 'identifier-row' in detail
+    assert 'data-copy-value=' in detail
+    assert 'viewer-controls' in detail
+    for control in ['Reset', 'Spin', 'Cartoon', 'Surface', 'pLDDT', 'Fullscreen']:
+        assert control in detail

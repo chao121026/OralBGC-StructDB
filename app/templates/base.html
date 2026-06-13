@@ -19,8 +19,8 @@
       <div class="nav-drawer" id="nav">
         <ul class="navbar-nav nav-list ms-auto align-items-lg-center">
           <li><a class="nav-link {{ 'active' if active=='home' }}" href="/">Home</a></li>
-          <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Browse</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="/mags">MAGs</a></li><li><a class="dropdown-item" href="/bgcs">BGCs</a></li><li><a class="dropdown-item" href="/gcfs">GCFs</a></li><li><a class="dropdown-item" href="/proteins">Proteins</a></li><li><a class="dropdown-item" href="/structures">Structures</a></li></ul></li>
-          <li><a class="nav-link" href="/search">Search</a></li><li><a class="nav-link" href="/networks">Networks</a></li><li><a class="nav-link {{ 'active' if active=='downloads' }}" href="/downloads">Downloads</a></li><li><a class="nav-link" href="/help">Help</a></li><li><a class="nav-link" href="/about">About</a></li><li><a class="nav-link" href="/contact">Contact</a></li>
+          <li class="nav-item dropdown"><a class="nav-link dropdown-toggle {{ 'active' if active in ['mags','bgcs','gcfs','proteins','structures'] }}" href="#" role="button" data-bs-toggle="dropdown">Browse</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="/mags">MAGs</a></li><li><a class="dropdown-item" href="/bgcs">BGCs</a></li><li><a class="dropdown-item" href="/gcfs">GCFs</a></li><li><a class="dropdown-item" href="/proteins">Proteins</a></li><li><a class="dropdown-item" href="/structures">Structures</a></li></ul></li>
+          <li><a class="nav-link {{ 'active' if active=='search' }}" href="/search">Search</a></li><li><a class="nav-link {{ 'active' if active=='networks' }}" href="/networks">Networks</a></li><li><a class="nav-link {{ 'active' if active=='downloads' }}" href="/downloads">Downloads</a></li><li><a class="nav-link {{ 'active' if active=='help' }}" href="/help">Help</a></li><li><a class="nav-link {{ 'active' if active=='about' }}" href="/about">About</a></li><li><a class="nav-link subtle-link {{ 'active' if active=='contact' }}" href="/contact">Contact</a></li>
         </ul>
       </div>
       <div id="nav-overlay" class="nav-overlay" hidden></div>
@@ -31,6 +31,7 @@
 <footer class="site-footer"><div class="page-shell">PHRC_BGCStructDB_v1 · Public academic release · No candidate-ranking/IP files exposed.</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', path='js/navigation.js') }}"></script>
+<script src="{{ url_for('static', path='js/ui.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

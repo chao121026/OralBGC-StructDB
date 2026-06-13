@@ -7,7 +7,12 @@ def short_id(value: str | None) -> str:
     text = str(value)
     match = re.search(r"(region\d+)_cds(\d+)$", text)
     if match:
+        if "|" in text:
+            return f"{text.split('|', 1)[0]}|...|{match.group(1)}|cds{match.group(2)}"
         return f"{match.group(1)} · cds{match.group(2)}"
+    region_match = re.search(r"(region\d+)", text)
+    if "|" in text and region_match:
+        return f"{text.split('|', 1)[0]}|...|{region_match.group(1)}"
     if "|" in text:
         return text.split("|", 1)[0] + "|" + text.split("|", 1)[1][:18] + "..."
     if len(text) > 28:

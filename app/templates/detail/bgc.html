@@ -1,5 +1,5 @@
-{% extends "base.html" %}{% block content %}
-<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/bgcs">BGCs</a> / <span class="mono">{{ record.public_bgc_id }}</span></p><h1>BGC Detail</h1><p class="mono break-id">{{ record.region_basename }}</p><div class="record-meta"><span class="badge-token">PHRC</span><a class="badge-token" href="/mags/{{ record.public_mag_id }}">MAG</a>{% if record.public_gcf_id %}<a class="badge-token" href="/gcfs/{{ record.public_gcf_id }}">Primary c0.3 GCF</a>{% endif %}<span>{{ record.bigscape_class_primary or 'Unassigned class' }}</span></div></div></section>
+{% extends "base.html" %}{% import "components/macros.html" as ui %}{% block content %}
+<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/bgcs">BGCs</a> / <span class="mono">{{ record.public_bgc_id|short_id }}</span></p><h1>BGC Detail</h1><div class="identifier-block compact-identifiers">{{ ui.identifier_row('Public BGC ID', record.public_bgc_id) }}{{ ui.identifier_row('Region', record.region_basename) }}</div><div class="record-meta"><span class="badge-token">PHRC</span><a class="badge-token" href="/mags/{{ record.public_mag_id }}">MAG</a>{% if record.public_gcf_id %}<a class="badge-token" href="/gcfs/{{ record.public_gcf_id }}">Primary c0.3 GCF</a>{% endif %}<span>{{ record.bigscape_class_primary or 'Unassigned class' }}</span></div></div></section>
 <section class="page-shell section">
   <h2>Summary Metrics</h2>
   <div class="stats-grid refined"><div class="stat-card"><span>Proteins</span><strong>{{ record.number_BGC_proteins }}</strong></div><div class="stat-card"><span>Predicted structures</span><strong>{{ coverage.structures or 0 }}</strong></div><div class="stat-card"><span>AF3 QC</span><strong>{{ coverage.af3_qc or 0 }}</strong></div><div class="stat-card"><span>Foldseek/PDB</span><strong>{{ coverage.foldseek or 0 }}</strong></div></div>
@@ -8,13 +8,16 @@
 <section class="page-shell section">
   <h2>Gene Cluster Track</h2>
   {% if genes %}
+  <p class="mobile-hint">Swipe to explore genes.</p>
   <div class="gene-track-wrap">
-    <svg viewBox="0 0 980 120" role="img" aria-label="BGC gene cluster track with directional CDS arrows">
-      <line x1="40" y1="96" x2="940" y2="96" stroke="#617080" stroke-width="2"/><text x="40" y="112" class="svg-label">scale</text>
+    <div class="gene-track-inner">
+    <svg viewBox="0 0 980 150" role="img" aria-label="BGC gene cluster track with directional CDS arrows">
+      <line x1="40" y1="116" x2="940" y2="116" stroke="#617080" stroke-width="2"/><text x="40" y="136" class="svg-label">scale</text>
       {% for g in genes %}
-      <a href="/proteins/{{ g.public_protein_id }}"><polygon points="{% if g.strand == '-1' %}{{ g.x + g.width }},40 {{ g.x + 8 }},40 {{ g.x }},55 {{ g.x + 8 }},70 {{ g.x + g.width }},70{% else %}{{ g.x }},40 {{ g.x + g.width - 8 }},40 {{ g.x + g.width }},55 {{ g.x + g.width - 8 }},70 {{ g.x }},70{% endif %}" fill="{{ g.color }}"><title>{{ g.locus_tag or g.query }} · {{ g.product or 'Unannotated' }}</title></polygon></a>
+      <a href="/proteins/{{ g.public_protein_id }}"><polygon points="{% if g.strand == '-1' %}{{ g.x + g.width }},42 {{ g.x + 10 }},42 {{ g.x }},62 {{ g.x + 10 }},82 {{ g.x + g.width }},82{% else %}{{ g.x }},42 {{ g.x + g.width - 10 }},42 {{ g.x + g.width }},62 {{ g.x + g.width - 10 }},82 {{ g.x }},82{% endif %}" fill="{{ g.color }}"><title>{{ g.locus_tag or g.query }} · {{ g.product or 'Unannotated' }} · strand {{ g.strand }}</title></polygon></a>
       {% endfor %}
     </svg>
+    </div>
   </div>
   <div class="gene-legend" aria-label="Gene-kind legend"><span><i style="background:#007c89"></i>Biosynthetic</span><span><i style="background:#2b8a3e"></i>Additional</span><span><i style="background:#b56b1d"></i>Transport</span><span><i style="background:#6b5fb5"></i>Regulatory</span><span><i style="background:#7b8794"></i>Other</span></div>
   <p class="note">Arrows use CDS start/end/strand coordinates from the public integrated table. Colors represent broad gene-kind categories when available.</p>

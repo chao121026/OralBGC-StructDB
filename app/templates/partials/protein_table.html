@@ -2,7 +2,7 @@
   <table class="data-table mobile-cards">
     <caption>{{ data.total }} proteins match the current filters.</caption>
     <thead>
-      <tr><th>Public protein ID</th><th>Product</th><th>BGC</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek/PDB</th><th>Mean pLDDT</th><th>Match category</th></tr>
+      <tr><th>Public protein ID</th><th>Product</th><th>BGC</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek/PDB</th><th>Mean pLDDT</th><th>Match category</th><th>Detail</th></tr>
     </thead>
     <tbody>
       {% for p in data['items'] %}
@@ -16,9 +16,10 @@
         <td data-label="Foldseek/PDB"><span class="badge-token {{ 'ok' if p.foldseek_annotation_available == '1' else 'muted-badge' }}">{{ 'Foldseek/PDB annotation available' if p.foldseek_annotation_available == '1' else 'No Foldseek' }}</span></td>
         <td data-label="Mean pLDDT" class="desktop-extra">{{ p.mean_plddt|fmt_measure(1) if p.af3_qc_available == '1' and p.mean_plddt else 'Not available' }}</td>
         <td data-label="Match category" class="desktop-extra"><span class="badge-token pdb">{{ p.pdb_structural_match_category|human_label if p.pdb_structural_match_category else 'Not available' }}</span></td>
+        <td data-label="Detail"><a class="detail-link" href="/proteins/{{ p.public_protein_id }}">Open</a><details class="protein-card-extra"><summary>More annotations</summary><dl><dt>Compactness</dt><dd>{{ p.compactness_class|human_label if p.compactness_class else 'Not available' }}</dd><dt>AF3 confidence</dt><dd>{{ p.af3_confidence_class|human_label if p.af3_confidence_class else 'Not available' }}</dd><dt>PDB category</dt><dd>{{ p.pdb_structural_match_category|human_label if p.pdb_structural_match_category else 'Not available' }}</dd><dt>GCF</dt><dd class="mono">{{ p.public_gcf_id|short_id if p.public_gcf_id else 'Unassigned' }}</dd><dt>MAG</dt><dd class="mono">{{ p.public_mag_id|short_id if p.public_mag_id else 'Not available' }}</dd><dt>BGC</dt><dd class="mono">{{ p.public_bgc_id|short_id if p.public_bgc_id else 'Not available' }}</dd></dl></details></td>
       </tr>
       {% else %}
-      <tr><td colspan="9" class="empty-state"><strong>No proteins match these filters.</strong><span>Clear filters or broaden the search term.</span></td></tr>
+      <tr><td colspan="10" class="empty-state"><strong>No proteins match these filters.</strong><span>Clear filters or broaden the search term.</span></td></tr>
       {% endfor %}
     </tbody>
   </table>
