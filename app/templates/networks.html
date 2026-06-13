@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block content %}
+<section class="page-shell section">
+  <div class="page-heading"><div><p class="eyebrow dark">Networks</p><h1>BiG-SCAPE Networks</h1><p>Network archives are exposed through the strict public download manifest. Direct Cytoscape.js rendering is deferred until individual `.network` files are parsed, size-screened, and registered in an allowlist.</p></div></div>
+  <div class="status-note">Real archive inspection found `.network` files inside `networks.tar.gz`; `cytoscape_files.tar.gz` is currently empty. No example networks are fabricated.</div>
+  <div class="download-list">{% for item in network_files %}<div class="download-row"><div><strong>{{ item.filename }}</strong><p>{{ item.description }}</p><code>{{ item.md5 or 'md5 unavailable' }}</code></div><div class="download-meta"><span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span><a class="btn btn-sm btn-primary" href="/downloads/file/{{ item.file_key }}">Download</a></div></div>{% endfor %}</div>
+  <div class="network-shell" id="network-preview"><p>Future bounded viewer controls: file selector, class/GCF filters, node search, zoom, reset, fit, and node metadata panel.</p></div>
+</section>
+{% endblock %}

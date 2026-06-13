@@ -1,0 +1,36 @@
+<div class="table-wrap" aria-live="polite">
+  <table class="data-table">
+    <caption>{{ data.total }} {{ entity }} records match the current filters.</caption>
+    <thead>
+      {% if entity == 'mags' %}
+      <tr><th>Public MAG ID</th><th>Original MAG ID</th><th>BGCs</th><th>BGC proteins</th><th>Primary c0.3 GCFs</th><th>Structures</th><th>AF3 QC</th><th>Foldseek/PDB</th></tr>
+      {% elif entity == 'bgcs' %}
+      <tr><th>Public BGC ID</th><th>Region</th><th>MAG</th><th>Contig</th><th>Class</th><th>Primary c0.3 GCF</th><th>Proteins</th><th>Structures</th><th>AF3 QC</th><th>Foldseek</th></tr>
+      {% elif entity == 'gcfs' %}
+      <tr><th>Public GCF ID</th><th>Original GCF ID</th><th>Class</th><th>BGCs</th><th>MAGs</th><th>Proteins</th><th>Structures</th><th>AF3 QC</th><th>Foldseek</th></tr>
+      {% else %}
+      <tr><th>Protein</th><th>Product</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek</th><th>Mean pLDDT</th><th>Confidence</th><th>Compactness</th><th>PDB category</th><th>Viewer</th></tr>
+      {% endif %}
+    </thead>
+    <tbody>
+      {% for item in data['items'] %}
+        {% if entity == 'mags' %}
+        <tr><td><a class="mono" href="/mags/{{ item.public_mag_id }}">{{ item.public_mag_id }}</a></td><td class="mono small-cell">{{ item.mag_id }}</td><td>{{ item.number_BGCs }}</td><td>{{ item.number_BGC_proteins }}</td><td>{{ item.number_BiGSCAPE_GCFs }}</td><td>{{ item.predicted_structures_available }}</td><td>{{ item.proteins_with_af3_qc }}</td><td>{{ item.proteins_with_foldseek_annotation }}</td></tr>
+        {% elif entity == 'bgcs' %}
+        <tr><td><a class="mono" href="/bgcs/{{ item.public_bgc_id }}">{{ item.public_bgc_id }}</a></td><td>{{ item.region_basename }}</td><td><a class="mono" href="/mags/{{ item.public_mag_id }}">{{ item.public_mag_id }}</a></td><td>{{ item.contig_id }}</td><td>{{ item.bigscape_class_primary or 'Unassigned' }}</td><td>{% if item.public_gcf_id %}<a class="mono" href="/gcfs/{{ item.public_gcf_id }}">{{ item.public_gcf_id }}</a>{% else %}Unassigned{% endif %}</td><td>{{ item.number_BGC_proteins }}</td><td>{{ item.predicted_structures_available }}</td><td>{{ item.proteins_with_af3_qc }}</td><td>{{ item.proteins_with_foldseek_annotation }}</td></tr>
+        {% elif entity == 'gcfs' %}
+        <tr><td><a class="mono" href="/gcfs/{{ item.public_gcf_id }}">{{ item.public_gcf_id }}</a></td><td class="mono">{{ item.bigscape_gcf_id_full_primary }}</td><td>{{ item.bigscape_class_primary }}</td><td>{{ item.number_BGCs }}</td><td>{{ item.number_MAGs }}</td><td>{{ item.number_BGC_proteins }}</td><td>{{ item.predicted_structures_available }}</td><td>{{ item.proteins_with_af3_qc }}</td><td>{{ item.proteins_with_foldseek_annotation }}</td></tr>
+        {% else %}
+        <tr><td><a class="mono" href="/proteins/{{ item.public_protein_id }}">{{ item.public_protein_id }}</a></td><td>{{ item.product or 'Unannotated' }}</td><td>{{ item.sequence_length }} <span class="muted">{{ item.length_bucket }}</span></td><td><span class="badge-token ok">Structure available</span></td><td>{{ 'AF3 QC available' if item.af3_qc_available == '1' else 'Not available in this release' }}</td><td>{{ 'Foldseek/PDB annotation available' if item.foldseek_annotation_available == '1' else 'Not available in this release' }}</td><td>{{ item.mean_plddt or 'Not available in this release' }}</td><td>{{ item.af3_confidence_class or 'Not available in this release' }}</td><td>{{ item.compactness_class or 'Not available in this release' }}</td><td>{{ item.pdb_structural_match_category or 'Not available in this release' }}</td><td><a href="/proteins/{{ item.public_protein_id }}">View</a></td></tr>
+        {% endif %}
+      {% else %}
+      <tr><td colspan="11" class="empty-state"><strong>No records match these filters.</strong><span>Clear filters or broaden your search.</span></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<nav class="pager">
+  <span>Page {{ data.page }} of {{ data.total_pages }}</span>
+  {% if data.page > 1 %}<a hx-get="/{{ entity }}?page={{ data.page-1 }}&q={{ q }}" hx-target="#entity-table" hx-push-url="true" href="/{{ entity }}?page={{ data.page-1 }}&q={{ q }}">Previous</a>{% endif %}
+  {% if data.page < data.total_pages %}<a hx-get="/{{ entity }}?page={{ data.page+1 }}&q={{ q }}" hx-target="#entity-table" hx-push-url="true" href="/{{ entity }}?page={{ data.page+1 }}&q={{ q }}">Next</a>{% endif %}
+</nav>

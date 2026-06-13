@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block content %}
+<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/mags">MAGs</a> / <span class="mono">{{ record.public_mag_id }}</span></p><h1>MAG Detail</h1><p class="mono break-id">{{ record.mag_id }}</p><div class="record-meta"><span class="badge-token">PHRC</span><span>{{ record.number_BGCs }} BGCs</span><span>{{ record.number_BGC_proteins }} BGC proteins</span><span>{{ record.number_BiGSCAPE_GCFs }} primary c0.3 GCFs</span></div></div></section>
+<section class="page-shell section">
+  <h2>Summary Metrics</h2>
+  <div class="stats-grid refined">
+    <div class="stat-card"><span>BGCs</span><strong>{{ record.number_BGCs }}</strong></div>
+    <div class="stat-card"><span>BGC proteins</span><strong>{{ record.number_BGC_proteins }}</strong></div>
+    <div class="stat-card"><span>Primary c0.3 GCFs</span><strong>{{ record.number_BiGSCAPE_GCFs }}</strong></div>
+    <div class="stat-card"><span>Predicted structures</span><strong>{{ record.predicted_structures_available }}</strong></div>
+    <div class="stat-card"><span>AF3 QC</span><strong>{{ record.proteins_with_af3_qc }}</strong></div>
+    <div class="stat-card"><span>Foldseek/PDB</span><strong>{{ record.proteins_with_foldseek_annotation }}</strong></div>
+  </div>
+</section>
+<section class="page-shell section two-col">
+  <div><h2>Linked BGCs</h2><ul class="related-list">{% for b in bgcs %}<li><a class="mono" href="/bgcs/{{ b.public_bgc_id }}">{{ b.public_bgc_id }}</a><span>{{ b.bigscape_class_primary or 'Unassigned' }} · {{ b.number_BGC_proteins }} proteins</span></li>{% else %}<li>No BGCs found.</li>{% endfor %}</ul><a href="/bgcs?mag={{ record.public_mag_id }}">Open filtered BGC browse</a></div>
+  <div><h2>Linked proteins</h2><ul class="related-list">{% for p in proteins %}<li><a class="mono" href="/proteins/{{ p.public_protein_id }}">{{ p.public_protein_id }}</a><span>{{ p.product or 'Unannotated' }}</span></li>{% else %}<li>No proteins found.</li>{% endfor %}</ul><a href="/proteins?q={{ record.mag_id }}">Open filtered protein browse</a></div>
+</section>
+<section class="page-shell section two-col">
+  <div><h2>Linked primary c0.3 GCFs</h2><ul class="related-list">{% for g in gcfs %}<li><a class="mono" href="/gcfs/{{ g.public_gcf_id }}">{{ g.public_gcf_id }}</a><span>{{ g.bigscape_class_primary }}</span></li>{% else %}<li>No primary GCF assignment found.</li>{% endfor %}</ul></div>
+  <div><h2>Distributions</h2><p>BGC classes: {% for c in class_dist %}<span class="badge-token">{{ c.label }}: {{ c.value }}</span> {% endfor %}</p><p>Protein lengths: {% for c in length_dist %}<span class="badge-token">{{ c.label }}: {{ c.value }}</span> {% endfor %}</p></div>
+</section>
+{% endblock %}

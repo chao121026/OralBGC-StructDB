@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}{{ title }} · PHRC_BGCStructDB{% endblock %}
+{% block content %}
+<section class="page-shell section">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow dark">Browse</p>
+      <h1>{{ title }}</h1>
+      <p>{{ description }}</p>
+    </div>
+    <a class="btn btn-outline-primary" href="/api/{{ entity }}?page=1&page_size=100">JSON API</a>
+  </div>
+  <form class="filter-bar compact-filter" hx-get="/{{ entity }}" hx-target="#entity-table" hx-push-url="true" hx-indicator="#table-loading">
+    <label>Search<input name="q" value="{{ q }}" placeholder="identifier, class, product"></label>
+    {% if entity == 'mags' %}
+      <label>Dataset<input name="dataset" value="{{ filters.dataset }}"></label>
+    {% elif entity == 'bgcs' %}
+      <label>MAG<input name="mag" value="{{ filters.mag }}"></label>
+      <label>GCF<input name="gcf" value="{{ filters.gcf }}"></label>
+      <label>Class<input name="bgc_class" value="{{ filters.bgc_class }}"></label>
+      <label>Assignment<input name="assigned" value="{{ filters.assigned }}" placeholder="assigned/unassigned"></label>
+    {% elif entity == 'gcfs' %}
+      <label>Class<input name="bgc_class" value="{{ filters.bgc_class }}"></label>
+    {% elif entity == 'structures' %}
+      <label>Length bucket<input name="length_bucket" value="{{ filters.length_bucket }}"></label>
+      <label>AF3 QC<input name="af3_qc_available" value="{{ filters.af3_qc_available }}" placeholder="1 or 0"></label>
+      <label>Foldseek<input name="foldseek_annotation_available" value="{{ filters.foldseek_annotation_available }}" placeholder="1 or 0"></label>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">Apply</button>
+    <a class="btn btn-light" href="/{{ entity }}">Clear</a>
+  </form>
+  <div class="filter-chip-row">
+    {% for name,value in filters.items() if value %}<span class="filter-chip">{{ name }}={{ value }}</span>{% endfor %}
+  </div>
+  <div id="table-loading" class="loading-state htmx-indicator">Updating table...</div>
+  <div id="entity-table">{% include "partials/entity_table.html" %}</div>
+</section>
+{% endblock %}

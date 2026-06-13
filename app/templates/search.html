@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block content %}
+<section class="page-shell section">
+  <div class="page-heading"><div><p class="eyebrow dark">Query</p><h1>Unified Search</h1><p>Search MAGs, BGCs, primary c0.3 GCFs, protein records, products, gene names, and Foldseek/PDB targets.</p></div></div>
+  <form class="filter-bar" method="get" action="/search"><label>Search term<input name="q" value="{{ q }}" minlength="2" placeholder="terpene, FAM_00390, protein ID, PDB target"></label><button class="btn btn-primary" type="submit">Search</button></form>
+  {% if error %}<p class="status-note">{{ error }}</p>{% endif %}
+  <section class="chart-card"><h2>Sequence Search</h2><p><strong>Planned for a future release.</strong> This interface is reserved for a future asynchronous BLASTp/MMseqs2 workflow. The public v1 site does not execute shell commands or expose an unfinished sequence-search backend.</p><textarea class="sequence-box" aria-label="Future FASTA input" placeholder=">protein_sequence"></textarea></section>
+  {% if results %}
+    {% for group,payload in results.groups.items() %}
+    <section class="section-subblock"><h2>{{ group|capitalize }} <span class="muted">({{ payload.total }})</span></h2>
+      <ul class="related-list">
+      {% for item in payload['items'] %}
+        <li><a class="mono" href="{{ item.canonical_url }}">{{ item.public_mag_id or item.public_bgc_id or item.public_gcf_id or item.public_protein_id }}</a><span>{{ item.product or item.region_basename or item.bigscape_class_primary or item.mag_id or 'Record' }}</span></li>
+      {% else %}<li>No {{ group }} results.</li>{% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  {% elif q %}
+    <p class="empty-state">No records matched this query.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block content %}
+<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/bgcs">BGCs</a> / <span class="mono">{{ record.public_bgc_id }}</span></p><h1>BGC Detail</h1><p class="mono break-id">{{ record.region_basename }}</p><div class="record-meta"><span class="badge-token">PHRC</span><a class="badge-token" href="/mags/{{ record.public_mag_id }}">MAG</a>{% if record.public_gcf_id %}<a class="badge-token" href="/gcfs/{{ record.public_gcf_id }}">Primary c0.3 GCF</a>{% endif %}<span>{{ record.bigscape_class_primary or 'Unassigned class' }}</span></div></div></section>
+<section class="page-shell section">
+  <h2>Summary Metrics</h2>
+  <div class="stats-grid refined"><div class="stat-card"><span>Proteins</span><strong>{{ record.number_BGC_proteins }}</strong></div><div class="stat-card"><span>Predicted structures</span><strong>{{ coverage.structures or 0 }}</strong></div><div class="stat-card"><span>AF3 QC</span><strong>{{ coverage.af3_qc or 0 }}</strong></div><div class="stat-card"><span>Foldseek/PDB</span><strong>{{ coverage.foldseek or 0 }}</strong></div></div>
+  <p class="note">Individual GBK extraction is not yet available through record routes. Download the complete antiSMASH region archive from Downloads.</p>
+</section>
+<section class="page-shell section">
+  <h2>Gene Cluster Track</h2>
+  {% if genes %}
+  <div class="gene-track-wrap">
+    <svg viewBox="0 0 980 120" role="img" aria-label="BGC gene cluster track with directional CDS arrows">
+      <line x1="40" y1="96" x2="940" y2="96" stroke="#617080" stroke-width="2"/><text x="40" y="112" class="svg-label">scale</text>
+      {% for g in genes %}
+      <a href="/proteins/{{ g.public_protein_id }}"><polygon points="{% if g.strand == '-1' %}{{ g.x + g.width }},40 {{ g.x + 8 }},40 {{ g.x }},55 {{ g.x + 8 }},70 {{ g.x + g.width }},70{% else %}{{ g.x }},40 {{ g.x + g.width - 8 }},40 {{ g.x + g.width }},55 {{ g.x + g.width - 8 }},70 {{ g.x }},70{% endif %}" fill="{{ g.color }}"><title>{{ g.locus_tag or g.query }} · {{ g.product or 'Unannotated' }}</title></polygon></a>
+      {% endfor %}
+    </svg>
+  </div>
+  <p class="note">Arrows use CDS start/end/strand coordinates from the public integrated table. Colors represent broad gene-kind categories when available.</p>
+  {% else %}<p class="empty-state">No CDS coordinates are available for a gene-cluster track for this BGC.</p>{% endif %}
+</section>
+<section class="page-shell section"><h2>BGC Protein Table</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Protein</th><th>Product</th><th>Gene kind</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek</th></tr></thead><tbody>{% for p in proteins %}<tr><td><a class="mono" href="/proteins/{{ p.public_protein_id }}">{{ p.public_protein_id }}</a></td><td>{{ p.product or 'Unannotated' }}</td><td>{{ p.gene_kind }}</td><td>{{ p.length_bucket }}</td><td>{{ p.structure_available }}</td><td>{{ p.af3_qc_available }}</td><td>{{ p.foldseek_annotation_available }}</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

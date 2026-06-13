@@ -12,10 +12,19 @@ import sqlite3
 from pathlib import Path
 
 VIEWPORTS = [(1440, 1000), (768, 1024), (390, 844)]
-PAGES = [
+STATIC_PAGES = [
     ("home", "/"),
+    ("mags", "/mags"),
+    ("bgcs", "/bgcs"),
+    ("gcfs", "/gcfs"),
     ("proteins", "/proteins"),
+    ("structures", "/structures"),
+    ("search", "/search?q=terpene"),
+    ("networks", "/networks"),
     ("downloads", "/downloads"),
+    ("help", "/help"),
+    ("about", "/about"),
+    ("contact", "/contact"),
 ]
 
 
@@ -29,6 +38,22 @@ def representative_protein(db_path: Path) -> str:
     if not row:
         raise SystemExit("No representative protein with structure, AF3 QC, and Foldseek annotation found.")
     return row[0]
+
+
+def representative_records(db_path: Path) -> dict[str, str]:
+    conn = sqlite3.connect(db_path)
+    records = {
+        "protein-detail": "/proteins/" + representative_protein(db_path),
+    }
+    for name, table, col, route in [
+        ("mag-detail", "mag_summary", "public_mag_id", "/mags/"),
+        ("bgc-detail", "bgc_summary", "public_bgc_id", "/bgcs/"),
+        ("gcf-detail", "bigscape_gcf_summary", "public_gcf_id", "/gcfs/"),
+    ]:
+        row = conn.execute(f"select {col} from {table} where coalesce({col}, '') != '' order by {col} limit 1").fetchone()
+        if row:
+            records[name] = route + row[0]
+    return records
 
 
 async def main():
@@ -45,8 +70,7 @@ async def main():
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    protein_id = representative_protein(Path(args.db))
-    pages = PAGES + [("protein-detail", "/proteins/" + protein_id)]
+    pages = STATIC_PAGES + list(representative_records(Path(args.db)).items())
 
     async with async_playwright() as p:
         browser = await p.chromium.launch()
