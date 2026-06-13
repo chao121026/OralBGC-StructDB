@@ -48,7 +48,7 @@ def bgcs_page(request: Request): return templates.TemplateResponse('placeholder.
 @router.get('/mags')
 def mags_page(request: Request): return templates.TemplateResponse('placeholder.html', {"request":request,"title":"Browse MAGs","active":"mags"})
 @router.get('/gcfs')
-def gcfs_page(request: Request): return templates.TemplateResponse('placeholder.html', {"request":request,"title":"Browse GCFs","active":"gcfs"})
+def gcfs_page(request: Request): return templates.TemplateResponse('placeholder.html', {"request":request,"title":"Browse primary c0.3 GCFs","active":"gcfs"})
 @router.get('/structures')
 def structures_page(request: Request): return templates.TemplateResponse('placeholder.html', {"request":request,"title":"Browse Structures","active":"structures"})
 @router.get('/search')

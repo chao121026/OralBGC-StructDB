@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PACKAGE=Path('/Users/jz7982/Documents/PHRC_BGCStructDB_v1')
+PACKAGE = Path(__file__).resolve().parents[2] / 'PHRC_BGCStructDB_v1'
 
 def test_ingestion_builds_public_tables(tmp_path):
     db=tmp_path/'test.sqlite'

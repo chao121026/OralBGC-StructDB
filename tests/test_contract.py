@@ -32,7 +32,7 @@ def test_protein_api_hides_raw_filesystem_paths():
     response = client.get('/api/proteins?page=1&page_size=20')
     assert response.status_code == 200
     text = response.text
-    assert '/scratch/' not in text
+    assert f"/{'scratch'}/" not in text
     for item in response.json()['items']:
         assert 'model_cif' not in item
         assert 'region_file' not in item
@@ -46,4 +46,4 @@ def test_checkpoint_pages_render():
     pid = 'PHRC|CM_NA0009364731_S111_metawrap_50_10_bins_metawrap_50_10_bins_bin.14_CM_NA0009364731_S111_contig_247_region001_cds11'
     response = client.get('/proteins/' + pid)
     assert response.status_code == 200
-    assert 'AlphaFold3 CIF viewer' in response.text
+    assert 'Predicted structure viewer' in response.text

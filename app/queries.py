@@ -11,7 +11,7 @@ def public_row(row):
     return {k: v for k, v in row.items() if k not in HIDDEN_RESPONSE_COLUMNS and not k.endswith('_file') and not k.endswith('_path')}
 
 ALLOWED_SORTS = {
-    "bgc_protein_summary": {"public_protein_id","query","region_basename","public_bgc_id","public_gcf_id","public_mag_id","product","gene_kind","sequence_length","length_bucket","mean_plddt","compactness_class","target","prob","alntmscore","pdb_structural_match_category"},
+    "bgc_protein_summary": {"public_protein_id","query","region_basename","public_bgc_id","public_gcf_id","public_mag_id","product","gene_kind","sequence_length","length_bucket","mean_plddt","compactness_class","target","prob","alntmscore","pdb_structural_match_category","structure_available","af3_qc_available","foldseek_annotation_available"},
     "download_manifest": {"filename","category","size_bytes","modified_date"},
 }
 SEARCH_COLUMNS = {
@@ -32,7 +32,7 @@ def paged_table(table, page=1, page_size=25, sort_by=None, sort_dir='asc', q=Non
             parts.append(f"coalesce({col}, '') like :q")
         clauses.append('(' + ' or '.join(parts) + ')'); params['q']=f"%{q}%"
     for col,val in filters.items():
-        if val not in (None,'') and col in ALLOWED_SORTS.get(table,set()).union({'dataset','af3_confidence_class'}):
+        if val not in (None,'') and col in ALLOWED_SORTS.get(table,set()).union({'dataset','af3_confidence_class','structure_available','af3_qc_available','foldseek_annotation_available'}):
             clauses.append(f"{col} = :f_{col}"); params[f'f_{col}']=val
     where = ' where ' + ' and '.join(clauses) if clauses else ''
     offset=(page-1)*page_size

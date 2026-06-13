@@ -11,7 +11,7 @@ Local review URL: `http://127.0.0.1:8000`
 
 ## Data Used
 
-The checkpoint uses the ingested SQLite database built from `/Users/jz7982/Documents/PHRC_BGCStructDB_v1`. Live stats are 583 MAGs, 1,913 BGCs, 179 GCFs, 22,626 BGC proteins, 10,972 AF3 model rows, and 10,972 Foldseek/PDB annotations. The CIF viewer is wired to a real approved CIF route.
+The checkpoint uses the ingested SQLite database built from `${PACKAGE_ROOT}`. Live stats are 583 MAGs, 1,913 BGCs, 179 primary c0.3 GCFs, 22,626 BGC proteins, 22,622 predicted structures available, 10,972 proteins with AF3 QC, and 10,972 proteins with Foldseek/PDB annotation. The CIF viewer is wired to a real approved CIF route.
 
 ## Visual Tokens
 
@@ -43,4 +43,4 @@ MAG, BGC, GCF, structures browse, search, networks, help, about, and contact are
 
 ## Screenshot Status
 
-Required viewport captures: 1440x1000, 768x1024, and 390x844 for the four checkpoint pages. This environment does not have Playwright, Chromium, Firefox, or wkhtmltoimage installed, and no browser screenshot tool is available through Codex. The app is running locally for manual capture at the URL above.
+Required viewport captures: 1440x1000, 768x1024, and 390x844 for the four checkpoint pages. Automated screenshot support is available in `scripts/capture_screenshots.py`. In this environment Playwright/Chromium is not installed, so screenshots have not been generated here.

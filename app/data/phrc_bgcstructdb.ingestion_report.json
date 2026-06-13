@@ -6,7 +6,7 @@
     },
     "bgc_summary": {
       "rows": 1913,
-      "columns": 17
+      "columns": 16
     },
     "bgc_protein_summary": {
       "rows": 22626,
@@ -18,23 +18,23 @@
     },
     "bigscape_bgc_to_gcf": {
       "rows": 8731,
-      "columns": 8
+      "columns": 7
     },
     "af3_model_summary": {
       "rows": 10972,
-      "columns": 24
+      "columns": 22
     },
     "foldseek_besthit_all": {
       "rows": 10972,
-      "columns": 24
+      "columns": 23
     },
     "foldseek_af3qc_merged_all": {
       "rows": 10972,
-      "columns": 29
+      "columns": 27
     },
     "integrated_summary": {
       "rows": 22626,
-      "columns": 100
+      "columns": 96
     },
     "column_dictionary": {
       "rows": 111,
@@ -47,5 +47,48 @@
   "missing_identifiers": {},
   "missing_structure_files": 0,
   "structure_file_map_rows": 22622,
-  "download_manifest_rows": 27
+  "structure_ids_missing_from_proteins": 0,
+  "download_manifest_rows": 27,
+  "coverage_by_length_bucket": [
+    {
+      "length_bucket": "short",
+      "total_proteins": 12555,
+      "available_cif_files": 12551,
+      "af3_qc_rows": 10972,
+      "foldseek_rows": 10972,
+      "missing_cifs": 4,
+      "cifs_lacking_af3_qc": 1579,
+      "cifs_lacking_foldseek": 1579
+    },
+    {
+      "length_bucket": "medium",
+      "total_proteins": 9675,
+      "available_cif_files": 9675,
+      "af3_qc_rows": 0,
+      "foldseek_rows": 0,
+      "missing_cifs": 0,
+      "cifs_lacking_af3_qc": 9675,
+      "cifs_lacking_foldseek": 9675
+    },
+    {
+      "length_bucket": "long",
+      "total_proteins": 351,
+      "available_cif_files": 351,
+      "af3_qc_rows": 0,
+      "foldseek_rows": 0,
+      "missing_cifs": 0,
+      "cifs_lacking_af3_qc": 351,
+      "cifs_lacking_foldseek": 351
+    },
+    {
+      "length_bucket": "very_long",
+      "total_proteins": 45,
+      "available_cif_files": 45,
+      "af3_qc_rows": 0,
+      "foldseek_rows": 0,
+      "missing_cifs": 0,
+      "cifs_lacking_af3_qc": 45,
+      "cifs_lacking_foldseek": 45
+    }
+  ]
 }

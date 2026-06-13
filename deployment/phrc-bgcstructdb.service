@@ -3,8 +3,8 @@ Description=PHRC_BGCStructDB web service
 After=network.target
 
 [Service]
-WorkingDirectory=/Users/jz7982/Documents/PHRC_BGCStructDB_web
-EnvironmentFile=/Users/jz7982/Documents/PHRC_BGCStructDB_web/.env
+WorkingDirectory=/opt/phrc-bgcstructdb-web
+EnvironmentFile=/etc/phrc-bgcstructdb.env
 ExecStart=/usr/bin/env uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 
