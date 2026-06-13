@@ -73,11 +73,23 @@ async def main():
     pages = STATIC_PAGES + list(representative_records(Path(args.db)).items())
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        try:
+            browser = await p.chromium.launch()
+        except Exception as exc:
+            raise SystemExit(
+                "Playwright Chromium could not launch in this environment. "
+                "Install/repair with: pip install playwright && playwright install chromium. "
+                "If running under a macOS sandbox, run this script from an unrestricted shell."
+            ) from exc
         for width, height in VIEWPORTS:
             page = await browser.new_page(viewport={"width": width, "height": height})
             for name, path in pages:
                 await page.goto(args.base_url.rstrip("/") + path, wait_until="networkidle")
+                if name == "protein-detail":
+                    try:
+                        await page.wait_for_selector(".structure-ready canvas, .structure-error, .empty-viewer", timeout=15000)
+                    except Exception:
+                        pass
                 await page.screenshot(path=out / f"{name}-{width}x{height}.png", full_page=True)
             await page.close()
         await browser.close()

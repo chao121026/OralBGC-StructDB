@@ -60,3 +60,39 @@ def test_homepage_exposes_four_scientific_chart_containers():
         'chart-pdb-category',
     ]:
         assert chart_id in response.text
+
+
+def test_mobile_navigation_contract_is_present_and_closed_by_default():
+    client = TestClient(app)
+    response = client.get('/')
+    assert response.status_code == 200
+    html = response.text
+    assert 'id="mobile-menu-toggle"' in html
+    assert 'aria-expanded="false"' in html
+    assert 'id="nav-overlay"' in html
+    assert 'js/navigation.js' in html
+    assert 'nav-open' not in html
+
+
+def test_protein_browse_uses_mobile_cards_and_short_identifiers():
+    client = TestClient(app)
+    response = client.get('/proteins')
+    assert response.status_code == 200
+    html = response.text
+    assert 'data-table mobile-cards' in html
+    assert 'data-label="Public protein ID"' in html
+    assert 'identifier-cell' in html
+    assert 'title="PHRC|' in html
+
+
+def test_protein_detail_contains_contained_viewer_loading_state_and_short_id():
+    client = TestClient(app)
+    pid = 'PHRC|CM_NA0009364731_S111_metawrap_50_10_bins_metawrap_50_10_bins_bin.14_CM_NA0009364731_S111_contig_247_region001_cds11'
+    response = client.get('/proteins/' + pid)
+    assert response.status_code == 200
+    html = response.text
+    assert 'class="structure-viewer"' in html
+    assert 'structure-loading' in html
+    assert 'identifier-block' in html
+    assert 'region001 · cds11' in html
+    assert 'PHRC|CM_NA0009364731' in html

@@ -16,8 +16,10 @@ from app.services.entities import (
     list_mags,
     list_structures,
 )
+from app.template_filters import register_template_filters
 
 templates=Jinja2Templates(directory='app/templates')
+register_template_filters(templates)
 router=APIRouter(default_response_class=HTMLResponse)
 
 @router.get('/')
