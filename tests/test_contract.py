@@ -47,3 +47,16 @@ def test_checkpoint_pages_render():
     response = client.get('/proteins/' + pid)
     assert response.status_code == 200
     assert 'Predicted structure viewer' in response.text
+
+
+def test_homepage_exposes_four_scientific_chart_containers():
+    client = TestClient(app)
+    response = client.get('/')
+    assert response.status_code == 200
+    for chart_id in [
+        'chart-bgc-class',
+        'chart-confidence',
+        'chart-length',
+        'chart-pdb-category',
+    ]:
+        assert chart_id in response.text

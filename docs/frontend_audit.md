@@ -1,23 +1,27 @@
 # Frontend Audit
 
-Scope: four checkpoint pages only: Home, Protein browse, Protein/structure detail, and Downloads.
+Scope: public scientific database UI with emphasis on the four checkpoint pages.
 
-## Findings and implemented refinements
+## Implemented refinements
 
-- Typography hierarchy: retained large homepage title, tightened stat-card labels, and kept table text compact but readable.
-- Spacing rhythm: adjusted stat-grid responsiveness and compact status badges so the homepage does not read like a SaaS landing page.
-- Navigation clarity: retained stable database navigation, version badge, and skip link. Full downstream pages remain placeholders until checkpoint review.
-- Table density: added concise availability columns for Structure, AF3 QC, and Foldseek/PDB instead of showing all raw metrics. Empty table state now gives a clear recovery action.
-- Badge consistency: added neutral status badges for available/not-available annotation layers.
-- Chart legibility: homepage chart remains a real Plotly chart with textual summary; labels now clarify blank categories.
-- Scientific notation: changed “AF3 models” summary language to “predicted structures available” and “proteins with AF3 QC” to avoid over-claiming.
-- Loading states: added an HTMX loading indicator for protein table updates.
-- Mobile responsiveness: stat cards now collapse from seven columns to four, two, then one column; detail layout remains single-column on narrower screens.
-- Protein detail balance: made the CIF viewer conditional and prominent, and added an annotation-layer panel so CIF-only records are scientifically accurate.
-- Accessibility: preserved visible focus states, semantic headings, table captions, high-contrast header, labeled inputs, and reduced-motion behavior.
+- Added reusable Jinja macros for statistic cards and badges.
+- Reworked homepage charting into four scientific Plotly panels: BGC class distribution, AF3 confidence distribution, protein length distribution, and PDB structural-match category distribution.
+- Preserved a restrained visual system: white/light neutral surfaces, deep navy header, teal structural biology accent, and a limited warm highlight.
+- Improved workflow treatment and version/update-history visibility.
+- Kept tables dense but readable with monospace limited to identifiers.
+- Maintained explicit distinctions between predicted structure availability, AF3 QC availability, and Foldseek/PDB annotation availability.
+- Protein detail keeps the structure viewer prominent while showing truthful unavailable states for CIF-only and no-CIF records.
+- Downloads remain trust-oriented with public allowlist, descriptions, file sizes, and checksums.
 
-## Remaining visual limitations
+## Design risks checked
 
-- Browser screenshots still require a local Playwright/Chromium installation.
-- Network and entity browse pages remain intentionally unimplemented beyond placeholders.
-- The structure viewer uses 3Dmol defaults; residue confidence coloring should wait until per-residue pLDDT parsing is available.
+- Does not use default Bootstrap dashboard cards as the main visual language.
+- Does not use glassmorphism, decorative animation, oversized rounded SaaS cards, or generic illustrations.
+- Does not label weak/no PDB matches as candidates or therapeutic leads.
+- Does not expose raw filesystem paths or candidate-priority fields in public HTML/API tests.
+
+## Remaining limitations
+
+- Browser screenshots require installing Playwright and Chromium.
+- CDN assets should be vendored for production if external asset dependency is unacceptable.
+- Structure viewer controls are minimal; fullscreen/surface/spin controls can be added after screenshot review.

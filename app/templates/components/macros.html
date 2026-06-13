@@ -1,0 +1,11 @@
+{% macro stat_card(label, value, description) -%}
+<div class="stat-card" title="{{ description }}">
+  <span>{{ label }}</span>
+  <strong>{{ '{:,}'.format(value) }}</strong>
+  <p>{{ description }}</p>
+</div>
+{%- endmacro %}
+
+{% macro status_badge(text, state='neutral') -%}
+<span class="badge-token {{ 'ok' if state == 'ok' else 'muted-badge' if state == 'muted' else '' }}">{{ text }}</span>
+{%- endmacro %}

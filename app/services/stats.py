@@ -44,6 +44,7 @@ def chart_payload():
         return {
             "bgc_class": grouped("bigscape_class_primary"),
             "confidence": grouped("af3_confidence_class"),
+            "length_bucket": grouped("length_bucket"),
             "compactness": grouped("compactness_class"),
             "pdb_category": grouped("pdb_structural_match_category"),
         }
