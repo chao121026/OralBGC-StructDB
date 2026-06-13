@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+app/data/*.sqlite
+app/data/*.sqlite-*
+artifacts/screenshots/

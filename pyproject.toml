@@ -1,0 +1,10 @@
+[project]
+name = "phrc-bgcstructdb-web"
+version = "0.1.0"
+description = "Public FastAPI/Jinja website for PHRC_BGCStructDB"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::pytest.PytestCacheWarning"]
