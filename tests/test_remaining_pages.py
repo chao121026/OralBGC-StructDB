@@ -39,7 +39,7 @@ def test_entity_detail_pages_render_cross_links():
         response = client.get(path)
         assert response.status_code == 200
         assert expected in response.text
-        assert "Primary c0.3" in response.text or "primary c0.3" in response.text
+        assert "BGS-" in response.text
 
 
 def test_completed_entity_api_endpoints_have_pagination_and_detail():
@@ -47,7 +47,7 @@ def test_completed_entity_api_endpoints_have_pagination_and_detail():
         ("/api/mags", "public_mag_id"),
         ("/api/bgcs", "public_bgc_id"),
         ("/api/gcfs", "public_gcf_id"),
-        ("/api/structures", "public_protein_id"),
+        ("/api/structures", "public_structure_id"),
     ]:
         payload = client.get(base + "?page=1&page_size=5").json()
         assert payload["total"] > 0
@@ -102,6 +102,6 @@ def test_public_pages_and_apis_do_not_leak_paths_or_sensitive_fields():
 
 def test_version_api_exposes_release_metadata():
     payload = client.get("/api/version").json()
-    assert payload["database_version"] == "PHRC_BGCStructDB_v1"
+    assert payload["database_version"] == "BGS_v1.0"
     assert payload["schema_version"]
     assert "PHRC" in payload["loaded_datasets"]

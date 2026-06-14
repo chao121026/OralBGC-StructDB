@@ -16,44 +16,44 @@ LIST_CONFIG = {
         "id_col": "public_mag_id",
         "default_sort": "public_mag_id",
         "sorts": {
-            "public_mag_id", "mag_id", "number_BGCs", "number_BGC_proteins",
+            "mag_accession", "public_mag_id", "mag_id", "original_mag_id", "number_BGCs", "number_BGC_proteins",
             "number_BiGSCAPE_GCFs", "predicted_structures_available",
             "proteins_with_af3_qc", "proteins_with_foldseek_annotation",
         },
-        "search": ["m.public_mag_id", "m.mag_id"],
+        "search": ["m.mag_accession", "m.public_mag_id", "m.mag_id", "m.original_mag_id"],
     },
     "bgcs": {
         "id_col": "public_bgc_id",
         "default_sort": "public_bgc_id",
         "sorts": {
-            "public_bgc_id", "region_basename", "public_mag_id", "contig_id",
-            "region_number", "bigscape_class_primary", "public_gcf_id",
+            "bgc_accession", "public_bgc_id", "region_basename", "mag_accession", "public_mag_id", "contig_id",
+            "region_number", "bigscape_class_primary", "primary_gcf_accession", "public_gcf_id",
             "number_BGC_proteins", "predicted_structures_available",
             "proteins_with_af3_qc", "proteins_with_foldseek_annotation",
         },
-        "search": ["b.public_bgc_id", "b.bgc_id", "b.region_basename", "b.genome_id", "b.contig_id"],
+        "search": ["b.bgc_accession", "b.public_bgc_id", "b.bgc_id", "b.original_bgc_id", "b.region_basename", "b.genome_id", "b.original_mag_id", "b.contig_id", "b.region_number"],
     },
     "gcfs": {
         "id_col": "public_gcf_id",
         "default_sort": "public_gcf_id",
         "sorts": {
-            "public_gcf_id", "bigscape_gcf_id_full_primary", "bigscape_class_primary",
+            "primary_gcf_accession", "public_gcf_id", "bigscape_gcf_id_full_primary", "bigscape_class_primary",
             "number_BGCs", "number_MAGs", "number_BGC_proteins",
             "predicted_structures_available", "proteins_with_af3_qc",
             "proteins_with_foldseek_annotation",
         },
-        "search": ["g.public_gcf_id", "g.bigscape_gcf_id_full_primary", "g.bigscape_class_primary"],
+        "search": ["g.primary_gcf_accession", "g.public_gcf_id", "g.bigscape_gcf_id_full_primary", "g.bigscape_class_primary"],
     },
     "structures": {
-        "id_col": "public_protein_id",
-        "default_sort": "public_protein_id",
+        "id_col": "public_structure_id",
+        "default_sort": "public_structure_id",
         "sorts": {
-            "public_protein_id", "product", "sequence_length", "length_bucket",
+            "structure_accession", "public_structure_id", "protein_accession", "public_protein_id", "product", "sequence_length", "length_bucket",
             "structure_available", "af3_qc_available", "foldseek_annotation_available",
             "mean_plddt", "af3_confidence_class", "compactness_class",
             "pdb_structural_match_category",
         },
-        "search": ["p.public_protein_id", "p.query", "p.product", "p.gene_name", "p.target"],
+        "search": ["p.structure_accession", "p.public_structure_id", "p.protein_accession", "p.public_protein_id", "p.query", "p.original_protein_id", "p.original_structure_filename", "p.product", "p.gene_name", "p.target", "p.contig_id", "p.region_number"],
     },
 }
 
@@ -85,7 +85,7 @@ def _range_clause(field: str, min_value: int | None, max_value: int | None, para
 def _canonical(entity: str, row: dict[str, Any]) -> dict[str, Any]:
     id_col = LIST_CONFIG[entity]["id_col"]
     if row.get(id_col):
-        row["canonical_url"] = f"/{entity}/{row[id_col]}" if entity != "structures" else f"/proteins/{row[id_col]}"
+        row["canonical_url"] = f"/{entity}/{row[id_col]}" if entity != "structures" else f"/structures/{row[id_col]}"
     return public_row(row)
 
 
@@ -138,7 +138,7 @@ def list_mags(page=1, page_size=25, sort_by="public_mag_id", sort_dir="asc", q=N
             from bgc_protein_summary group by public_mag_id
         ) c using(public_mag_id)
     """
-    select_sql = f"""select m.dataset, m.public_mag_id, m.mag_id, m.number_BGCs, m.number_BGC_proteins,
+    select_sql = f"""select m.dataset, m.mag_accession, m.public_mag_id, m.original_mag_id, m.mag_id, m.number_BGCs, m.number_BGC_proteins,
         m.number_BiGSCAPE_GCFs, coalesce(c.predicted_structures_available,0) predicted_structures_available,
         coalesce(c.proteins_with_af3_qc,0) proteins_with_af3_qc,
         coalesce(c.proteins_with_foldseek_annotation,0) proteins_with_foldseek_annotation {base} {where}"""
@@ -176,8 +176,8 @@ def list_bgcs(page=1, page_size=25, sort_by="public_bgc_id", sort_dir="asc", q=N
             from bgc_protein_summary group by public_bgc_id
         ) c using(public_bgc_id)
     """
-    select_sql = f"""select b.dataset, b.public_bgc_id, b.bgc_id, b.region_basename, b.public_mag_id,
-        b.genome_id, b.contig_id, b.region_number, b.bigscape_class_primary, b.public_gcf_id,
+    select_sql = f"""select b.dataset, b.bgc_accession, b.public_bgc_id, b.original_bgc_id, b.bgc_id, b.region_basename, b.mag_accession, b.public_mag_id,
+        b.original_mag_id, b.genome_id, b.contig_id, b.region_number, b.bigscape_class_primary, b.primary_gcf_accession, b.public_gcf_id,
         b.bigscape_gcf_id_full_primary, b.number_BGC_proteins,
         coalesce(c.predicted_structures_available,0) predicted_structures_available,
         coalesce(c.proteins_with_af3_qc,0) proteins_with_af3_qc,
@@ -210,7 +210,7 @@ def list_gcfs(page=1, page_size=25, sort_by="public_gcf_id", sort_dir="asc", q=N
             from bgc_protein_summary where coalesce(public_gcf_id,'') != '' group by public_gcf_id
         ) c using(public_gcf_id)
     """
-    select_sql = f"""select g.dataset, g.public_gcf_id, g.bigscape_gcf_id_full_primary,
+    select_sql = f"""select g.dataset, g.gcf_accession, g.primary_gcf_accession, g.public_gcf_id, g.bigscape_gcf_id_full_primary,
         g.bigscape_class_primary, g.number_BGCs, g.number_MAGs, g.number_BGC_proteins,
         coalesce(c.predicted_structures_available,0) predicted_structures_available,
         coalesce(c.proteins_with_af3_qc,0) proteins_with_af3_qc,
@@ -234,7 +234,7 @@ def list_structures(page=1, page_size=25, sort_by="public_protein_id", sort_dir=
     clauses += _range_clause("mean_plddt", filters.get("mean_plddt_min"), filters.get("mean_plddt_max"), params)
     where = " where " + " and ".join(clauses)
     base = "from bgc_protein_summary p"
-    select_sql = f"""select p.dataset, p.public_protein_id, p.query, p.product, p.sequence_length,
+    select_sql = f"""select p.dataset, p.protein_accession, p.public_protein_id, p.original_protein_id, p.structure_accession, p.public_structure_id, p.original_structure_filename, p.query, p.product, p.sequence_length,
         p.length_bucket, p.structure_available, p.af3_qc_available, p.foldseek_annotation_available,
         p.mean_plddt, p.af3_confidence_class, p.compactness_class, p.pdb_structural_match_category {base} {where}"""
     return _paginate("structures", select_sql, f"select count(*) {base} {where}", params, page, page_size, sort_by, sort_dir)
@@ -247,8 +247,8 @@ def search_proteins(page_size=10, q=None):
     if q_clause:
         clauses.append(q_clause)
     where = " where " + " and ".join(clauses) if clauses else ""
-    select_sql = """select p.dataset, p.public_protein_id, p.query, p.product, p.gene_name,
-        p.target, p.sequence_length, p.length_bucket, p.structure_available,
+    select_sql = """select p.dataset, p.protein_accession, p.public_protein_id, p.original_protein_id, p.structure_accession, p.public_structure_id, p.query, p.product, p.gene_name,
+        p.target, p.region_basename, p.sequence_length, p.length_bucket, p.structure_available,
         p.af3_qc_available, p.foldseek_annotation_available
         from bgc_protein_summary p""" + where
     return _paginate("structures", select_sql, "select count(*) from bgc_protein_summary p" + where, params, 1, page_size, "public_protein_id", "asc")
@@ -268,6 +268,44 @@ def get_entity(entity: str, public_id: str):
     for item in [dict(row._mapping)]:
         return public_row(item)
     return data["items"][0]
+
+
+def resolve_legacy_accession(entity: str, identifier: str) -> str | None:
+    candidates = [identifier]
+    if identifier.startswith("PHRC|"):
+        candidates.append(identifier.removeprefix("PHRC|"))
+    tables = {
+        "mags": ("mag_summary", "public_mag_id", ["mag_id", "original_mag_id"]),
+        "bgcs": ("bgc_summary", "public_bgc_id", ["bgc_id", "original_bgc_id", "region_basename"]),
+        "gcfs": ("bigscape_gcf_summary", "public_gcf_id", ["bigscape_gcf_id_full_primary"]),
+        "proteins": ("bgc_protein_summary", "public_protein_id", ["query", "original_protein_id"]),
+        "structures": ("bgc_protein_summary", "public_structure_id", ["query", "original_protein_id", "original_structure_filename"]),
+    }
+    table, public_col, legacy_cols = tables[entity]
+    clauses = " or ".join([f"{col}=:identifier" for col in legacy_cols])
+    with db_connect() as conn:
+        row = None
+        for candidate in candidates:
+            row = conn.execute(text(f"select {public_col} from {table} where {clauses} limit 1"), {"identifier": candidate}).first()
+            if row:
+                break
+    return row._mapping[public_col] if row else None
+
+
+def get_protein_by_structure(public_structure_id: str):
+    with db_connect() as conn:
+        row = conn.execute(text("select public_protein_id from bgc_protein_summary where public_structure_id=:id limit 1"), {"id": public_structure_id}).first()
+    if not row:
+        raise HTTPException(404, "Structure not found")
+    return get_one_protein(row._mapping["public_protein_id"])
+
+
+def get_one_protein(public_protein_id: str):
+    with db_connect() as conn:
+        row = conn.execute(text("select * from bgc_protein_summary where public_protein_id=:id limit 1"), {"id": public_protein_id}).first()
+    if not row:
+        raise HTTPException(404, "Protein not found")
+    return public_row(dict(row._mapping))
 
 
 def get_mag_detail(public_mag_id: str):

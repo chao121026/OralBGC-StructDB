@@ -32,6 +32,7 @@ def version():
         "schema_version": "public-sqlite-v2",
         "ingestion_date": metadata.get("ingested_at"),
         "loaded_datasets": [metadata.get("dataset", "PHRC")],
+        "release_root_config": "PHRC_BGCSTRUCTDB_DATA_ROOT",
         "public_base": "read-only public API",
     }
 

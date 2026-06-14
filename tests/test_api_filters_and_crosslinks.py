@@ -31,7 +31,7 @@ def test_gcf_api_class_filter_and_detail_labeling():
     assert all(item["bigscape_class_primary"] == "terpene" for item in gcfs["items"])
     detail = client.get("/gcfs/" + gcfs["items"][0]["public_gcf_id"])
     assert detail.status_code == 200
-    assert "Primary c0.3 GCF Detail" in detail.text
+    assert "BGS-GCF-C03-" in detail.text
 
 
 def test_structure_browse_includes_cif_only_records():
@@ -72,4 +72,5 @@ def test_download_manifest_remains_allowlist_based():
     names = {item["filename"] for item in payload["items"]}
     assert "PHRC_integrated_BGC_protein_structure_summary.with_internal_priority_columns.tsv" not in names
     assert "candidate_peptides.faa" not in names
-    assert "region_gbk.tar.gz" in names
+    assert "BGS_BGC_GBK_v1.0.tar.gz" in names
+    assert "region_gbk.tar.gz" not in names

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import text
 from app.queries import paged_table, get_one_by_public_id
 from app.services.stats import stats_payload, chart_payload, featured_records
@@ -9,11 +9,14 @@ from app.services.entities import (
     get_bgc_detail,
     get_gcf_detail,
     get_mag_detail,
+    get_one_protein,
+    get_protein_by_structure,
     grouped_search,
     list_bgcs,
     list_gcfs,
     list_mags,
     list_structures,
+    resolve_legacy_accession,
 )
 from app.templates_env import templates
 
@@ -33,7 +36,11 @@ def protein_browse(request: Request, page:int=1, page_size:int=25, sort_by:str='
 @router.get('/proteins/{public_protein_id:path}')
 def protein_detail(request: Request, public_protein_id: str):
     protein=get_one_by_public_id('bgc_protein_summary','public_protein_id',public_protein_id)
-    if not protein: raise HTTPException(404, 'Protein not found')
+    if not protein:
+        canonical = resolve_legacy_accession("proteins", public_protein_id)
+        if canonical:
+            return _redirect(request, f"/proteins/{canonical}")
+        raise HTTPException(404, 'Protein not found')
     with db_connect() as conn:
         related=[]
         if table_exists(conn,'bgc_protein_summary'):
@@ -101,17 +108,59 @@ def networks_page(request: Request):
 
 @router.get('/mags/{public_mag_id:path}')
 def mag_detail(request: Request, public_mag_id: str):
-    return templates.TemplateResponse('detail/mag.html', {"request":request, **get_mag_detail(public_mag_id), "active":"mags"})
+    try:
+        detail = get_mag_detail(public_mag_id)
+    except HTTPException as exc:
+        canonical = resolve_legacy_accession("mags", public_mag_id)
+        if exc.status_code == 404 and canonical:
+            return _redirect(request, f"/mags/{canonical}")
+        raise
+    return templates.TemplateResponse('detail/mag.html', {"request":request, **detail, "active":"mags"})
 
 @router.get('/bgcs/{public_bgc_id:path}')
 def bgc_detail(request: Request, public_bgc_id: str):
-    detail = get_bgc_detail(public_bgc_id)
+    try:
+        detail = get_bgc_detail(public_bgc_id)
+    except HTTPException as exc:
+        canonical = resolve_legacy_accession("bgcs", public_bgc_id)
+        if exc.status_code == 404 and canonical:
+            return _redirect(request, f"/bgcs/{canonical}")
+        raise
     genes = _layout_genes(detail["genes"])
     return templates.TemplateResponse('detail/bgc.html', {"request":request, **detail, "genes":genes, "active":"bgcs"})
 
 @router.get('/gcfs/{public_gcf_id:path}')
 def gcf_detail(request: Request, public_gcf_id: str):
-    return templates.TemplateResponse('detail/gcf.html', {"request":request, **get_gcf_detail(public_gcf_id), "active":"gcfs"})
+    try:
+        detail = get_gcf_detail(public_gcf_id)
+    except HTTPException as exc:
+        canonical = resolve_legacy_accession("gcfs", public_gcf_id)
+        if exc.status_code == 404 and canonical:
+            return _redirect(request, f"/gcfs/{canonical}")
+        raise
+    return templates.TemplateResponse('detail/gcf.html', {"request":request, **detail, "active":"gcfs"})
+
+
+@router.get('/structures/{public_structure_id:path}')
+def structure_detail(request: Request, public_structure_id: str):
+    try:
+        protein = get_protein_by_structure(public_structure_id)
+    except HTTPException as exc:
+        canonical = resolve_legacy_accession("structures", public_structure_id)
+        if exc.status_code == 404 and canonical:
+            return _redirect(request, f"/structures/{canonical}")
+        raise
+    with db_connect() as conn:
+        related=[]
+        if table_exists(conn,'bgc_protein_summary'):
+            related=[dict(r._mapping) for r in conn.execute(text('select public_protein_id, query, product, mean_plddt, pdb_structural_match_category from bgc_protein_summary where bgc_id=:b and public_protein_id != :p limit 8'), {"b":protein.get('bgc_id'),"p":protein.get("public_protein_id")})]
+    return templates.TemplateResponse('detail/protein.html', {"request":request,"protein":protein,"related":related,"active":"structures"})
+
+
+def _redirect(request: Request, path: str) -> RedirectResponse:
+    query = request.url.query
+    location = f"{path}?{query}" if query else path
+    return RedirectResponse(location, status_code=308)
 
 
 def _layout_genes(genes):

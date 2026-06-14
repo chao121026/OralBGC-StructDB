@@ -48,11 +48,9 @@ def test_downloads_api_exposes_controlled_presentation_metadata():
     assert component['audience_level'] == 'advanced'
     assert component['advanced_group'] == 'Component tables'
 
-    cytoscape = next(item for item in items if item['filename'] == 'cytoscape_files.tar.gz')
-    assert cytoscape['audience_level'] == 'advanced'
-    assert cytoscape['is_empty'] is True
-    assert cytoscape['availability'] == 'unavailable'
-    assert cytoscape.get('download_url') is None
+    mapping = next(item for item in items if item['filename'] == 'BGS_public_accession_mapping.tsv')
+    assert mapping['audience_level'] == 'recommended'
+    assert mapping['availability'] == 'available'
 
     for item in items:
         assert 'relative_path' not in item
@@ -76,14 +74,13 @@ def test_download_context_always_contains_advanced_groups():
     ]
     assert len(primary) == 1
 
-    cytoscape = [
+    mapping = [
         item for items in context["advanced_groups"].values()
         for item in items
-        if item["filename"] == "cytoscape_files.tar.gz"
+        if item["filename"] == "BGS_public_accession_mapping.tsv"
     ]
-    assert len(cytoscape) == 1
-    assert cytoscape[0]["availability"] == "unavailable"
-    assert cytoscape[0]["download_url"] is None
+    assert not mapping
+    assert any(item["filename"] == "BGS_public_accession_mapping.tsv" for item in context["recommended_downloads"])
 
 
 def test_structure_route_rejects_traversal():
@@ -109,9 +106,9 @@ def test_checkpoint_pages_render():
         response = client.get(path)
         assert response.status_code == 200
     pid = 'PHRC|CM_NA0009364731_S111_metawrap_50_10_bins_metawrap_50_10_bins_bin.14_CM_NA0009364731_S111_contig_247_region001_cds11'
-    response = client.get('/proteins/' + pid)
-    assert response.status_code == 200
-    assert 'Predicted structure viewer' in response.text
+    response = client.get('/proteins/' + pid, follow_redirects=False)
+    assert response.status_code == 308
+    assert response.headers["location"].startswith("/proteins/BGS-PRT-")
 
 
 def test_downloads_page_renders_recommended_exports_and_collapsed_advanced():
@@ -126,15 +123,14 @@ def test_downloads_page_renders_recommended_exports_and_collapsed_advanced():
     assert '<summary>' in html
     assert 'Recommended primary metadata table' in html
     assert 'PHRC_integrated_BGC_protein_structure_summary.tsv' in html
-    assert 'AF3_final_models_short.tar.gz' in html
+    assert 'BGS_structures_short_v1.0.tar.gz' in html
     assert 'md5sums.txt' in html
 
     advanced_index = html.index('<details class="advanced-downloads">')
     component_index = html.index('BGC_protein_summary.tsv')
     assert component_index > advanced_index
-    assert 'cytoscape_files.tar.gz' in html
-    assert 'Unavailable in this release' in html
-    assert 'href="/downloads/file/b44b5de0e2b61216"' not in html
+    assert 'BGS_public_accession_mapping.tsv' in html
+    assert 'region_gbk.tar.gz' not in html
     assert '<details class="advanced-downloads">' in html
     assert '<details class="advanced-downloads" open' not in html
 
@@ -187,9 +183,9 @@ def test_protein_browse_uses_mobile_cards_and_short_identifiers():
     assert response.status_code == 200
     html = response.text
     assert 'data-table mobile-cards' in html
-    assert 'data-label="Public protein ID"' in html
+    assert 'data-label="BGS protein accession"' in html
     assert 'identifier-cell' in html
-    assert 'title="PHRC|' in html
+    assert 'title="BGS-PRT-' in html
 
 
 def test_protein_detail_contains_contained_viewer_loading_state_and_short_id():
@@ -201,8 +197,8 @@ def test_protein_detail_contains_contained_viewer_loading_state_and_short_id():
     assert 'class="structure-viewer"' in html
     assert 'structure-loading' in html
     assert 'identifier-block' in html
-    assert 'PHRC|...|region001|cds11' in html
-    assert 'PHRC|CM_NA0009364731' in html
+    assert 'BGS-PRT-' in html
+    assert 'Original protein ID' in html
 
 
 def test_custom_jinja_filters_registered():
@@ -214,7 +210,7 @@ def test_exact_reported_protein_detail_route_renders():
     client = TestClient(app)
     response = client.get('/proteins/PHRC%7CCH_NA0008303945_S123_metawrap_50_10_bins_metawrap_50_10_bins_bin.4_CH_NA0008303945_S123_contig_138_region001_cds15')
     assert response.status_code == 200
-    assert 'PHRC|...|region001|cds15' in response.text
+    assert 'BGS-PRT-000007' in response.text
 
 
 def test_visual_polish_contracts_render():

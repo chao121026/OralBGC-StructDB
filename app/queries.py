@@ -11,11 +11,11 @@ def public_row(row):
     return {k: v for k, v in row.items() if k not in HIDDEN_RESPONSE_COLUMNS and not k.endswith('_file') and not k.endswith('_path')}
 
 ALLOWED_SORTS = {
-    "bgc_protein_summary": {"public_protein_id","query","region_basename","public_bgc_id","public_gcf_id","public_mag_id","product","gene_kind","sequence_length","length_bucket","mean_plddt","compactness_class","target","prob","alntmscore","pdb_structural_match_category","structure_available","af3_qc_available","foldseek_annotation_available"},
+    "bgc_protein_summary": {"protein_accession","structure_accession","public_protein_id","public_structure_id","query","original_protein_id","region_basename","bgc_accession","public_bgc_id","gcf_accession","public_gcf_id","mag_accession","public_mag_id","product","gene_kind","sequence_length","length_bucket","mean_plddt","compactness_class","target","prob","alntmscore","pdb_structural_match_category","structure_available","af3_qc_available","foldseek_annotation_available"},
     "download_manifest": {"filename","category","size_bytes","modified_date"},
 }
 SEARCH_COLUMNS = {
-    "bgc_protein_summary": ["public_protein_id","query","region_basename","bgc_id","bigscape_gcf_id_full_primary","genome_id","product","gene_name","target"],
+    "bgc_protein_summary": ["protein_accession","structure_accession","public_protein_id","public_structure_id","query","original_protein_id","region_basename","bgc_id","original_bgc_id","bigscape_gcf_id_full_primary","primary_gcf_accession","genome_id","original_mag_id","contig_id","product","gene_name","target"],
 }
 
 def clamp_page(page:int, page_size:int):

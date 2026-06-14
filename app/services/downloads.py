@@ -106,6 +106,86 @@ PRESENTATION = {
     },
 }
 
+ACCESSION_PRESENTATION = {
+    "PHRC_integrated_BGC_protein_structure_summary.tsv": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 1,
+        "is_primary": True,
+        "record_count": 22626,
+        "recommended_label": "Recommended primary metadata table",
+        "display_description": "Accession-based integrated BGC, protein, predicted structure, AF3 QC, and Foldseek/PDB metadata.",
+        "usage_note": "Best for: most downstream analyses with stable BGS accessions",
+        "badges": ["Recommended", "Primary table"],
+    },
+    "BGS_public_accession_mapping.tsv": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 2,
+        "record_count": 47923,
+        "display_description": "Public BGS accession mapping with original PHRC identifiers retained as provenance.",
+        "usage_note": "Best for: mapping original PHRC identifiers to stable BGS accessions",
+        "badges": ["Recommended", "Accession mapping"],
+    },
+    "BGS_BGC_proteins_v1.0.faa": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 3,
+        "record_count": 22626,
+        "usage_note": "Best for: sequence-based analysis",
+        "badges": ["Recommended", "Sequences"],
+    },
+    "BiGSCAPE_GCF_summary.tsv": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 4,
+        "record_count": 179,
+        "display_description": "BGS primary c0.3 BiG-SCAPE GCF summary table.",
+        "usage_note": "Best for: primary GCF assignments",
+        "badges": ["Recommended", "GCF assignments"],
+    },
+    "BiGSCAPE_BGC_to_GCF.tsv": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 5,
+        "record_count": 8731,
+        "usage_note": "Best for: all-cutoff GCF assignment reproducibility",
+        "badges": ["Recommended", "GCF assignments"],
+    },
+    "BGS_BGC_GBK_v1.0.tar.gz": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 6,
+        "record_count": 1913,
+        "usage_note": "Best for: accession-named BGC GenBank records",
+        "badges": ["Recommended", "BGC annotations"],
+    },
+    "BGS_structures_short_v1.0.tar.gz": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 7,
+        "usage_note": "Best for: short protein structure analysis",
+        "badges": ["Recommended", "Structures"],
+    },
+    "BGS_structures_medium_v1.0.tar.gz": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 8,
+        "usage_note": "Best for: medium protein structure analysis",
+        "badges": ["Recommended", "Structures"],
+    },
+    "BGS_structures_long_v1.0.tar.gz": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 9,
+        "usage_note": "Best for: long protein structure analysis",
+        "badges": ["Recommended", "Structures"],
+    },
+    "sha256sums.txt": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 10,
+        "usage_note": "Best for: checksum verification",
+        "badges": ["Recommended", "Checksums"],
+    },
+    "md5sums.txt": {
+        "audience_level": RECOMMENDED,
+        "recommended_rank": 11,
+        "usage_note": "Best for: compatibility checksum verification",
+        "badges": ["Recommended", "Checksums"],
+    },
+}
+
 ADVANCED_GROUP_ORDER = {
     "Component tables": 1,
     "Foldseek": 2,
@@ -120,7 +200,9 @@ def list_downloads():
     with db_connect() as conn:
         if not table_exists(conn, 'download_manifest'):
             return []
-        rows = [dict(r._mapping) for r in conn.execute(text("select file_key, filename, description, category, size_bytes, compression, md5, version, modified_date from download_manifest where public_safe=1 order by category, filename"))]
+        has_sha = conn.execute(text("select 1 from pragma_table_info('download_manifest') where name='sha256'")).first()
+        sha_expr = "sha256" if has_sha else "'' as sha256"
+        rows = [dict(r._mapping) for r in conn.execute(text(f"select file_key, filename, description, category, size_bytes, compression, md5, {sha_expr}, version, modified_date from download_manifest where public_safe=1 order by category, filename"))]
     return sorted((_with_presentation(row) for row in rows), key=_download_sort_key)
 
 
@@ -150,7 +232,7 @@ def download_sections():
 
 
 def _with_presentation(row):
-    meta = PRESENTATION.get(row["file_key"], {})
+    meta = ACCESSION_PRESENTATION.get(row["filename"]) or PRESENTATION.get(row["file_key"], {})
     level = meta.get("audience_level", ADVANCED)
     is_empty = bool(meta.get("is_empty", row.get("size_bytes") in {0, 45}))
     availability = meta.get("availability", "unavailable" if is_empty else "available")
