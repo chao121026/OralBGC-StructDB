@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import text
 from app.queries import paged_table, get_one_by_public_id
 from app.services.stats import stats_payload, chart_payload, featured_records
-from app.services.downloads import list_downloads
+from app.services.downloads import build_download_page_context, list_downloads
 from app.database import db_connect, table_exists
 from app.services.entities import (
     get_bgc_detail,
@@ -42,9 +42,16 @@ def protein_detail(request: Request, public_protein_id: str):
 
 @router.get('/downloads')
 def downloads(request: Request):
-    items=list_downloads(); groups={}
-    for item in items: groups.setdefault(item['category'], []).append(item)
-    return templates.TemplateResponse('downloads.html', {"request":request,"groups":groups,"active":"downloads"})
+    context = {
+        **build_download_page_context(),
+        "active": "downloads",
+    }
+    return templates.TemplateResponse(request, 'downloads.html', context)
+
+
+@router.head('/downloads')
+def downloads_head():
+    return Response(status_code=200, media_type="text/html")
 
 @router.get('/help')
 def help_page(request: Request): return templates.TemplateResponse('help.html', {"request":request,"active":"help"})

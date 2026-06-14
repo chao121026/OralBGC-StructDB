@@ -165,3 +165,330 @@
     display: none !important;
   }
 }
+
+.download-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+
+.download-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+
+.download-section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 1.2fr);
+  gap: 1rem;
+  align-items: end;
+}
+
+.download-section-heading h2,
+.export-guidance h2 {
+  margin: 0;
+}
+
+.download-section-heading p,
+.export-guidance p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.download-category {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.download-category h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--color-navy);
+}
+
+.download-category .download-list {
+  gap: 0.75rem;
+  margin-bottom: 0;
+}
+
+.download-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.85rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 0.875rem;
+}
+
+.download-card-primary {
+  border-color: rgba(0, 124, 137, 0.38);
+  background: #fbfefe;
+}
+
+.download-card-unavailable {
+  background: #f8fafb;
+}
+
+.download-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.download-recommended-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--color-teal);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.download-filename {
+  display: block;
+  color: var(--color-navy);
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.download-description {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.download-best-for {
+  margin: 0.35rem 0 0;
+  color: #31485a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.download-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  color: #465767;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.download-meta span + span::before {
+  content: "";
+  display: inline-block;
+  width: 0.25rem;
+  height: 0.25rem;
+  margin: 0 0.25rem 0.12rem 0;
+  border-radius: 50%;
+  background: var(--color-line);
+}
+
+.download-checksum-row {
+  margin-top: 0.15rem;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.download-checksum-row .metadata-label {
+  color: #546575;
+  font-weight: 800;
+}
+
+.download-checksum-value {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background: transparent;
+}
+
+.download-checksum-row .copy-button {
+  padding: 0.16rem 0.45rem;
+  font-size: 0.72rem;
+}
+
+.download-actions {
+  justify-content: flex-end;
+}
+
+.download-actions .btn {
+  white-space: nowrap;
+}
+
+.download-unavailable {
+  display: inline-flex;
+  max-width: 11rem;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: right;
+}
+
+.export-guidance {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+  margin: 2rem 0;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  background: #f8fbfc;
+}
+
+.export-link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.export-link-grid a {
+  display: block;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--color-navy);
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.advanced-downloads {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--color-line);
+  padding-top: 1rem;
+}
+
+.advanced-downloads > summary {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  color: var(--color-navy);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.advanced-count {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.advanced-downloads .download-category {
+  margin-top: 1rem;
+}
+
+.advanced-downloads h3 {
+  margin: 0;
+  color: var(--color-navy);
+  font-size: 0.98rem;
+}
+
+.protein-desktop-table .data-table {
+  table-layout: fixed;
+}
+
+.protein-desktop-table th:nth-child(1),
+.protein-desktop-table td:nth-child(1) {
+  width: 13.5rem;
+}
+
+.protein-desktop-table th:nth-child(2),
+.protein-desktop-table td:nth-child(2) {
+  width: 16rem;
+}
+
+.protein-desktop-table th:nth-child(3),
+.protein-desktop-table td:nth-child(3) {
+  width: 7.5rem;
+}
+
+.protein-desktop-table th:nth-child(10),
+.protein-desktop-table td:nth-child(10) {
+  width: 4.75rem;
+}
+
+.bgc-cell {
+  white-space: nowrap;
+}
+
+.bgc-region-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-navy);
+  text-overflow: ellipsis;
+}
+
+.protein-mobile-card {
+  border: 1px solid rgba(216, 224, 232, 0.9);
+  background: #fff;
+}
+
+.protein-mobile-card .protein-card-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+}
+
+.protein-mobile-card .protein-length {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+@media (min-width: 1200px) {
+  .download-category-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .download-category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767.98px) {
+  .download-section-heading,
+  .export-guidance {
+    grid-template-columns: 1fr;
+  }
+
+  .download-category-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .download-card {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .download-actions {
+    justify-content: flex-start;
+  }
+
+  .download-unavailable {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .export-link-grid {
+    grid-template-columns: 1fr;
+  }
+}

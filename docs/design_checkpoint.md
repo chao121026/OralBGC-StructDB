@@ -45,12 +45,18 @@ The checkpoint uses the ingested SQLite database built from `${PACKAGE_ROOT}`. L
 - Server-rendered protein table with availability badges
 - Record hero, metadata badges, metric panels
 - 3Dmol-enabled structure viewer panel
-- Download manifest rows with checksums
+- Download hierarchy with recommended primary data, record-level export guidance, collapsed advanced files, and checksums
 - Empty/error states
 
 ## Design Rationale
 
-The interface is a restrained scientific resource rather than an admin dashboard or commercial SaaS landing page. The homepage explains the data hierarchy and database scale quickly; the protein browse page keeps dense records server-paginated; the detail page makes the predicted structure viewer the central visual element while clearly separating structure availability, AF3 QC, and Foldseek/PDB annotation; the downloads page emphasizes trust through allowlisted files and checksums.
+The interface is a restrained scientific resource rather than an admin dashboard or commercial SaaS landing page. The homepage explains the data hierarchy and database scale quickly; the protein browse page keeps dense records server-paginated; the detail page makes the predicted structure viewer the central visual element while clearly separating structure availability, AF3 QC, and Foldseek/PDB annotation; the downloads page emphasizes trust through allowlisted files and checksums while distinguishing recommended files from reproducibility resources.
+
+## Downloads Information Architecture
+
+`PHRC_integrated_BGC_protein_structure_summary.tsv` is the recommended primary metadata table because it joins the public BGC, protein, AF3 structure, QC, and Foldseek/PDB metadata needed for most downstream analyses. Component tables remain public, but they are grouped under Advanced analysis and reproducibility files so they do not compete with the integrated table as the default starting point.
+
+The Downloads page also documents record-level and filtered exports. Browse pages expose filtered MAG, BGC, GCF, protein, and structure views; detail pages provide record-level sequence or structure downloads where those routes exist; API JSON remains available through the documented FastAPI endpoints.
 
 ## Accessibility and Responsive Notes
 

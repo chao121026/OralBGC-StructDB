@@ -7,4 +7,5 @@
 - Some BGCs lack a primary GCF assignment.
 - PHRC is the initial dataset; HROM support is planned through the existing dataset schema.
 - Internal IP prioritization is not part of the public academic resource.
-- Full MAG, BGC, GCF, search, and network pages are intentionally deferred until after visual review.
+- The empty Cytoscape archive is retained for manifest traceability but is marked unavailable in the Downloads page; no interactive Cytoscape content is claimed for this release.
+- Record-level exports are limited to implemented browse, detail, API, sequence, and structure routes. Individual GBK record downloads are not advertised unless implemented.

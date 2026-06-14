@@ -19,7 +19,10 @@ Scope: public scientific database UI with emphasis on the four checkpoint pages.
 - Replaced the mobile Bootstrap collapse with an app-controlled drawer that starts closed, locks body scrolling only while open, and closes via Escape, outside click, or navigation.
 - Improved machine-label readability by converting underscore-heavy labels such as `moderate_remote_PDB_like` into human-readable text in visible UI.
 - Added a BGC gene-track legend and compact BGC protein rows.
-- Downloads remain trust-oriented with public allowlist, descriptions, file sizes, and checksums.
+- Downloads remain trust-oriented with public allowlist, descriptions, file sizes, and checksums, but now separate recommended primary files from advanced reproducibility resources.
+- The Downloads page identifies `PHRC_integrated_BGC_protein_structure_summary.tsv` as the recommended primary metadata table and keeps overlapping component tables inside a collapsed Advanced section.
+- Record-level and filtered export guidance links users to browse pages, detail pages, and API documentation without inventing unsupported file routes.
+- Empty or placeholder archives are not shown as normal recommended downloads; the empty Cytoscape archive is marked unavailable in Advanced.
 
 ## Design risks checked
 
@@ -27,6 +30,7 @@ Scope: public scientific database UI with emphasis on the four checkpoint pages.
 - Does not use glassmorphism, decorative animation, oversized rounded SaaS cards, or generic illustrations.
 - Does not label weak/no PDB matches as candidates or therapeutic leads.
 - Does not expose raw filesystem paths or candidate-priority fields in public HTML/API tests.
+- Does not expose internal-priority, candidate, private phenotype, or commercial annotation downloads in the Downloads hierarchy or `/api/downloads`.
 - Mobile layout includes regression coverage for horizontal overflow on Home, Protein browse, Downloads, and one real protein detail page.
 - Structure viewer includes regression coverage for detached canvas detection when Playwright Chromium is installed.
 

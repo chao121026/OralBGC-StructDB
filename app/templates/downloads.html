@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+{% set recommended_items = recommended_downloads | default([]) %}
+{% set grouped_advanced = advanced_groups | default({}) %}
+{% set advanced_file_count = advanced_count | default(0) %}
 <section class="page-shell section">
   <div class="page-heading">
     <div>
@@ -8,33 +11,119 @@
       <p>Files are shown from a strict public allowlist with checksums where available. Internal candidate-ranking and IP-development files are excluded.</p>
     </div>
   </div>
-  <div class="status-note"><strong>Version / Update History:</strong> PHRC_BGCStructDB_v1, schema public-sqlite-v2, loaded dataset PHRC. All-cutoff BiG-SCAPE assignments are retained for download.</div>
-  {% for category,items in groups.items() %}
-  <h2>{{ category }}</h2>
-  <div class="download-list">
-    {% for item in items %}
-    <article class="download-card" data-testid="download-card">
-      <div class="download-card-main">
-        <strong class="download-filename" title="{{ item.filename }}">{{ item.filename }}</strong>
-        <span class="badge-token">{{ category }}</span>
-        <p class="download-description">{{ item.description }}</p>
-        <div class="download-checksum-row download-checksum">
-          <span class="metadata-label">MD5</span>
-          {% if item.md5 %}
-          <code class="download-checksum-value" title="{{ item.md5 }}">{{ item.md5[:12] }}...{{ item.md5[-8:] }}</code>
-          <button class="copy-button" type="button" data-copy-value="{{ item.md5 }}" aria-label="Copy MD5 checksum for {{ item.filename }}">Copy</button>
-          {% else %}
-          <span class="download-checksum-value muted">md5 unavailable</span>
-          {% endif %}
+  <div class="status-note"><strong>Version / Update History:</strong> PHRC_BGCStructDB_v1, schema public-sqlite-v2, loaded dataset PHRC. All-cutoff BiG-SCAPE assignments are retained for reproducibility in Advanced downloads.</div>
+
+  <section class="download-section" aria-labelledby="recommended-downloads">
+    <div class="download-section-heading">
+      <div>
+        <p class="eyebrow dark">Start here</p>
+        <h2 id="recommended-downloads">Recommended data</h2>
+      </div>
+      <p>Primary files for most downstream analysis, sequence work, BGC annotation review, structure analysis, and release verification.</p>
+    </div>
+    <div class="download-category-grid">
+      {% for item in recommended_items %}
+      <article class="download-card {{ 'download-card-primary' if item.is_primary }}" data-testid="download-card">
+        <div class="download-card-main">
+          <div class="download-badges">
+            {% for badge in item.badges %}<span class="badge-token">{{ badge }}</span>{% endfor %}
+          </div>
+          {% if item.recommended_label %}<span class="download-recommended-label">{{ item.recommended_label }}</span>{% endif %}
+          <strong class="download-filename" title="{{ item.filename }}">{{ item.filename }}</strong>
+          <p class="download-description">{{ item.display_description }}</p>
+          <p class="download-best-for">{{ item.usage_note }}</p>
+          <div class="download-meta">
+            {% if item.record_count %}<span>{{ '{:,}'.format(item.record_count) }} records</span>{% endif %}
+            <span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span>
+            <span>{{ item.compression }}</span>
+            <span>{{ item.version }}</span>
+          </div>
+          <div class="download-checksum-row download-checksum">
+            <span class="metadata-label">MD5</span>
+            {% if item.md5 %}
+            <code class="download-checksum-value" title="{{ item.md5 }}">{{ item.md5[:12] }}...{{ item.md5[-8:] }}</code>
+            <button class="copy-button" type="button" data-copy-value="{{ item.md5 }}" aria-label="Copy MD5 checksum for {{ item.filename }}">Copy</button>
+            {% else %}
+            <span class="download-checksum-value muted">md5 unavailable</span>
+            {% endif %}
+          </div>
         </div>
+        <div class="download-actions">
+          <a class="btn btn-sm btn-primary" href="{{ item.download_url }}">Download</a>
+        </div>
+      </article>
+      {% else %}
+      <p class="empty-state"><strong>No recommended downloads are available in this release.</strong></p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="export-guidance" aria-labelledby="record-level-exports">
+    <div>
+      <p class="eyebrow dark">More ways to export</p>
+      <h2 id="record-level-exports">Record-level and filtered exports</h2>
+      <p>Browse pages support filtered export, while detail pages provide record-level sequence and structure downloads where available. API JSON is available through documented endpoints.</p>
+    </div>
+    <div class="export-link-grid">
+      <a href="/mags">MAG browse</a>
+      <a href="/bgcs">BGC browse</a>
+      <a href="/gcfs">GCF browse</a>
+      <a href="/proteins">Protein browse</a>
+      <a href="/structures">Structure browse</a>
+      <a href="/docs">OpenAPI docs</a>
+    </div>
+  </section>
+
+  <details class="advanced-downloads">
+    <summary>
+      <span>Advanced analysis and reproducibility files</span>
+      <span class="advanced-count">{{ advanced_file_count }} files</span>
+    </summary>
+    <p class="download-description">Component tables, raw outputs, specialist bundles, and reproducibility resources for users who need to audit or rebuild specific analysis layers.</p>
+    {% for group, items in grouped_advanced.items() %}
+    <section class="download-category" aria-labelledby="advanced-download-group-{{ loop.index }}">
+      <h3 id="advanced-download-group-{{ loop.index }}">{{ group }}</h3>
+      <div class="download-list">
+        {% for item in items %}
+        <article class="download-card {{ 'download-card-unavailable' if item.availability != 'available' }}" data-testid="download-card">
+          <div class="download-card-main">
+            <div class="download-badges">
+              <span class="badge-token">{{ group }}</span>
+              {% if item.availability != 'available' %}<span class="badge-token muted-badge">Unavailable in this release</span>{% endif %}
+            </div>
+            <strong class="download-filename" title="{{ item.filename }}">{{ item.filename }}</strong>
+            <p class="download-description">{{ item.display_description }}</p>
+            <p class="download-best-for">{{ item.usage_note }}</p>
+            <div class="download-meta">
+              {% if item.record_count %}<span>{{ '{:,}'.format(item.record_count) }} records</span>{% endif %}
+              <span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span>
+              <span>{{ item.compression }}</span>
+              <span>{{ item.version }}</span>
+            </div>
+            <div class="download-checksum-row download-checksum">
+              <span class="metadata-label">MD5</span>
+              {% if item.md5 %}
+              <code class="download-checksum-value" title="{{ item.md5 }}">{{ item.md5[:12] }}...{{ item.md5[-8:] }}</code>
+              <button class="copy-button" type="button" data-copy-value="{{ item.md5 }}" aria-label="Copy MD5 checksum for {{ item.filename }}">Copy</button>
+              {% else %}
+              <span class="download-checksum-value muted">md5 unavailable</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="download-actions">
+            {% if item.download_url %}
+            <a class="btn btn-sm btn-primary" href="{{ item.download_url }}">Download</a>
+            {% else %}
+            <span class="download-unavailable">Unavailable in this release</span>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
       </div>
-      <div class="download-actions">
-        <span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span>
-        <a class="btn btn-sm btn-primary" href="/downloads/file/{{ item.file_key }}">Download</a>
-      </div>
-    </article>
+    </section>
+    {% else %}
+    <p class="empty-state"><strong>No advanced files are available in this release.</strong></p>
     {% endfor %}
-  </div>
-  {% endfor %}
+  </details>
 </section>
 {% endblock %}

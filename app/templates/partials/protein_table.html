@@ -9,7 +9,11 @@
       <tr>
         <td data-label="Public protein ID" class="identifier-cell"><a class="mono" href="/proteins/{{ p.public_protein_id }}" title="{{ p.public_protein_id }}">{{ p.public_protein_id|short_id }}</a></td>
         <td data-label="Product">{{ p.product or 'Unannotated' }}</td>
-        <td data-label="BGC" class="mono small-cell" title="{{ p.public_bgc_id or '' }}">{{ p.public_bgc_id|short_id if p.public_bgc_id else '' }}</td>
+        <td data-label="BGC" class="mono small-cell bgc-cell">
+          {% if p.public_bgc_id %}
+          <a class="bgc-region-link" href="/bgcs/{{ p.public_bgc_id }}" title="{{ p.public_bgc_id }}" aria-label="BGC {{ p.public_bgc_id }}">{{ p.public_bgc_id.rsplit('_', 1)[-1] }}</a>
+          {% endif %}
+        </td>
         <td data-label="Length">{{ p.sequence_length }} <span class="muted">{{ p.length_bucket|human_label }}</span></td>
         <td data-label="Structure"><span class="badge-token {{ 'ok' if p.structure_available == '1' else 'muted-badge' }}">{{ 'Structure available' if p.structure_available == '1' else 'No CIF' }}</span></td>
         <td data-label="AF3 QC"><span class="badge-token {{ 'ok' if p.af3_qc_available == '1' else 'muted-badge' }}">{{ 'AF3 QC available' if p.af3_qc_available == '1' else 'No AF3 QC' }}</span></td>

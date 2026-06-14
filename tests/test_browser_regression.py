@@ -148,6 +148,17 @@ def _wide_elements(page):
     )
 
 
+def _grid_column_count(page, selector):
+    return page.locator(selector).first.evaluate(
+        """
+        (el) => getComputedStyle(el).gridTemplateColumns
+            .split(" ")
+            .filter(Boolean)
+            .length
+        """
+    )
+
+
 @pytest.mark.parametrize("path", ["/", "/proteins", "/downloads", f"/proteins/{PROTEIN_ID}"])
 def test_key_pages_do_not_overflow_mobile(browser, live_server, path):
     page = browser.new_page(viewport={"width": 390, "height": 844})
@@ -313,5 +324,76 @@ def test_download_cards_fit_mobile_viewport(browser, live_server):
                         "element": element_box,
                         "wide_elements": wide_elements,
                     }
+    finally:
+        page.close()
+
+
+def test_downloads_desktop_category_grid_and_actions(browser, live_server):
+    page = browser.new_page(viewport={"width": 1440, "height": 1000})
+    try:
+        open_page(page, live_server + "/downloads")
+        page.locator(".download-category-grid").wait_for(state="visible", timeout=30_000)
+        assert _grid_column_count(page, ".download-category-grid") >= 2
+        _assert_no_horizontal_overflow(page)
+
+        advanced = page.locator("details.advanced-downloads")
+        assert advanced.count() == 1
+        assert advanced.first.get_attribute("open") is None
+
+        grid = page.locator(".download-category-grid").first
+        grid_box = grid.bounding_box()
+        assert grid_box is not None
+        cards = grid.get_by_test_id("download-card")
+        assert cards.count() >= 6
+        for index in range(min(cards.count(), 6)):
+            card = cards.nth(index)
+            card_box = card.bounding_box()
+            assert card_box is not None
+            assert card_box["x"] >= grid_box["x"] - 1
+            assert card_box["x"] + card_box["width"] <= grid_box["x"] + grid_box["width"] + 1
+            download_action = card.locator(".download-actions a")
+            assert download_action.count() == 1
+            assert download_action.first.is_visible()
+    finally:
+        page.close()
+
+
+def test_downloads_mobile_keeps_single_column_polished_cards(browser, live_server):
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    try:
+        open_page(page, live_server + "/downloads")
+        page.locator(".download-category-grid").wait_for(state="visible", timeout=30_000)
+        assert _grid_column_count(page, ".download-category-grid") == 1
+        _assert_no_horizontal_overflow(page)
+        assert page.locator("details.advanced-downloads").first.get_attribute("open") is None
+
+        first_card = page.get_by_test_id("download-card").first
+        first_card.wait_for(state="visible", timeout=30_000)
+        checksum_box = first_card.locator(".download-checksum-value").first.bounding_box()
+        card_box = first_card.bounding_box()
+        assert checksum_box is not None
+        assert card_box is not None
+        assert checksum_box["x"] + checksum_box["width"] <= card_box["x"] + card_box["width"] + 1
+        assert first_card.locator(".download-checksum-row .copy-button").first.is_visible()
+        assert first_card.locator(".download-actions a").first.is_visible()
+    finally:
+        page.close()
+
+
+def test_protein_desktop_bgc_cell_uses_compact_region_label(browser, live_server):
+    page = browser.new_page(viewport={"width": 1440, "height": 1000})
+    try:
+        open_page(page, live_server + "/proteins")
+        page.locator(".protein-desktop-table").wait_for(state="visible", timeout=30_000)
+        _assert_no_horizontal_overflow(page)
+
+        bgc_link = page.locator(".protein-desktop-table td[data-label='BGC'] a").first
+        bgc_link.wait_for(state="visible", timeout=30_000)
+        label = bgc_link.inner_text().strip()
+        full_id = bgc_link.get_attribute("title") or bgc_link.get_attribute("aria-label") or ""
+        assert label.startswith("region"), label
+        assert full_id.startswith("PHRC|"), full_id
+        assert label in full_id
+        assert bgc_link.get_attribute("href").startswith("/bgcs/PHRC")
     finally:
         page.close()
