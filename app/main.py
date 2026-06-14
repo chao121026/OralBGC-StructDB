@@ -1,10 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from app.routes import api, pages, downloads, structures
 from app.templates_env import templates
+from app.config import get_settings
 
-app = FastAPI(title='PHRC_BGCStructDB', version='0.1.0', description='Public structure-enabled BGC protein database for oral microbiome MAGs')
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    settings.validate_release_root()
+    print(f"PHRC_BGCStructDB active data root: {settings.resolve_package_root()}")
+    yield
+
+
+app = FastAPI(title='PHRC_BGCStructDB', version='0.1.0', description='Public structure-enabled BGC protein database for oral microbiome MAGs', lifespan=lifespan)
 app.mount('/static', StaticFiles(directory='app/static'), name='static')
 app.include_router(api.router)
 app.include_router(structures.router)

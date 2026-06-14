@@ -83,6 +83,8 @@ def make_package(root: Path) -> None:
     (root / "antismash" / "region_gbk" / "contig_2.region001.gbk").write_text("LOCUS B\n")
     (root / "structures" / "AF3_final_models_short_cif").mkdir(parents=True)
     (root / "structures" / "AF3_final_models_short_cif" / "PRT_A.cif").write_text("data_PRT_A\n")
+    (root / "sequences").mkdir(parents=True)
+    (root / "sequences" / "BGC_proteins.faa").write_text(">PRT_A\nMAGA\n>PRT_B\nMATA\n")
 
 
 def write_gbk_archive(root: Path, members: dict[str, bytes]) -> None:
@@ -215,8 +217,7 @@ def test_apply_is_rejected_when_required_parent_reference_is_missing(tmp_path: P
 
     assert result.returncode != 0
     assert "missing parent relationships" in result.stderr
-    missing_rows = read_tsv(tmp_path / "public" / "artifacts" / "accession_migration" / "missing_reference_report.tsv")
-    assert missing_rows[0]["missing_parent_identifier"] == "MISSING_MAG"
+    assert not (tmp_path / "public").exists()
 
 
 def test_validator_accepts_dry_run_registry_preview(tmp_path: Path) -> None:
@@ -414,7 +415,7 @@ def test_unmatched_gbk_review_classifies_extra_region_and_apply_requires_manifes
     dry_run = run_migration(source, output, tmp_path / "registry.tsv", "--dry-run")
     assert dry_run.returncode == 0, dry_run.stderr
     review = read_tsv(output / "artifacts" / "accession_migration" / "unmatched_gbk_review.tsv")
-    assert review[0]["classification"] == "superseded_record"
+    assert review[0]["classification"] == "curated_release_exclusion"
     assert review[0]["recommended_action"] == "exclude_from_public_archive"
     exclusion = read_tsv(output / "artifacts" / "accession_migration" / "gbk_exclusion_manifest.tsv")
     assert exclusion[0]["review_status"] == "approved_for_exclusion"
@@ -473,3 +474,52 @@ def test_unmatched_gbk_review_detects_duplicate_sequence(tmp_path: Path) -> None
     review = read_tsv(output / "artifacts" / "accession_migration" / "unmatched_gbk_review.tsv")
     assert review[0]["classification"] == "duplicate_content"
     assert review[0]["candidate_existing_bgc_accession"] == "BGS-BGC-000001"
+
+
+def test_apply_builds_accession_release_tree_atomically_and_preserves_source(tmp_path: Path) -> None:
+    source = tmp_path / "package"
+    output = tmp_path / "BGS_release"
+    registry = tmp_path / "accession_registry.tsv"
+    make_package(source)
+    write_gbk_archive(
+        source,
+        {
+            "contig_1.region001.gbk": simple_genbank("contig_1", "ATGCATGCATGC"),
+            "contig_2.region001.gbk": simple_genbank("contig_2", "TTTTCCCCAAAA"),
+            "MAG_A/extra.region001.gbk": simple_genbank("extra", "AAAACCCCGGGG"),
+        },
+    )
+    source_fasta_before = (source / "sequences" / "BGC_proteins.faa").read_bytes()
+    dry_run = run_migration(source, tmp_path / "dry", registry, "--dry-run")
+    assert dry_run.returncode == 0, dry_run.stderr
+    exclusion_manifest = tmp_path / "dry" / "artifacts" / "accession_migration" / "gbk_exclusion_manifest.tsv"
+
+    result = run_migration(
+        source,
+        output,
+        registry,
+        "--gbk-exclusion-manifest",
+        str(exclusion_manifest),
+        "--apply",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert output.exists()
+    assert not output.with_name(output.name + ".partial").exists()
+    assert (source / "sequences" / "BGC_proteins.faa").read_bytes() == source_fasta_before
+    assert registry.exists()
+    assert (output / "metadata" / "BGS_public_accession_mapping.tsv").exists()
+    assert (output / "structures" / "BGS-STR-000001.cif").read_text() == "data_PRT_A\n"
+    assert (output / "sequences" / "BGS_BGC_proteins_v1.0.faa").read_text().splitlines()[0] == ">BGS-PRT-000001 source_collection=PHRC bgc=BGS-BGC-000001"
+    with tarfile.open(output / "antismash" / "BGS_BGC_GBK_v1.0.tar.gz", "r:gz") as tar:
+        names = tar.getnames()
+        assert names == ["BGS-BGC-000001.gbk", "BGS-BGC-000002.gbk"]
+        parsed = tar.extractfile(names[0]).read().decode()
+        assert "Public-Accession" in parsed
+        assert "BGS-BGC-000001" in parsed
+    assert "extra.region001.gbk" in (output / "provenance" / "gbk_exclusion_manifest.tsv").read_text()
+    manifest = read_tsv(output / "manifests" / "public_file_manifest.tsv")
+    assert {row["public_filename"] for row in manifest} >= {
+        "sequences/BGS_BGC_proteins_v1.0.faa",
+        "antismash/BGS_BGC_GBK_v1.0.tar.gz",
+    }

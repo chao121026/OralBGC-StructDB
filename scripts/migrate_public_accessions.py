@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import hashlib
 import io
 import json
@@ -134,6 +135,16 @@ ENTITY_PREFIX = {
 }
 
 LEGACY_TOKENS = ["metawrap_50_10_bins", "PHRC|", "region001", "contig_"]
+APPROVED_PHASE1_REGISTRY_SHA256 = "75465047d4c4c0c4284db399e4e8b75b8a4e8cdd5636a078f6f2a0dc8b7760bf"
+APPROVED_ENTITY_COUNTS = {"MAG": 583, "BGC": 1913, "GCF": 179, "PROTEIN": 22626, "STRUCTURE": 22622}
+PUBLIC_PATH_COLUMNS = {
+    "region_file",
+    "model_cif",
+    "bigscape_source_file",
+    "region_file_ranking",
+    "model_cif_ranking",
+    "af3_job_name_ranking",
+}
 
 
 @dataclass(frozen=True)
@@ -627,7 +638,7 @@ def tsv_column_plan(source_root: Path) -> list[dict[str, str]]:
                     "source_tsv": f"tables/{filename}",
                     "planned_public_columns": public_cols,
                     "planned_original_columns": original_cols,
-                    "notes": "Phase 3 rewrite candidate; Phase 1 dry run leaves source unchanged.",
+                    "notes": "Phase 2 rewrites this table with public accession columns when --apply is used.",
                 }
             )
     return rows
@@ -920,7 +931,7 @@ def build_unmatched_gbk_review(
                 score = "1.00"
                 reason = f"Exact {'content' if content_hash in content_to_accession else 'sequence'} checksum matches {existing}."
             else:
-                classification = "superseded_record"
+                classification = "curated_release_exclusion"
                 recommended = "exclude_from_public_archive"
                 score = "0.60"
                 reason = "Archive-only true region record absent from BGC/protein/integrated public summary tables; retained as internal provenance."
@@ -1056,10 +1067,371 @@ def apply_file_plan(source_root: Path, output_root: Path, file_plan: list[dict[s
             raise SystemExit(f"Checksum mismatch after copy: {target_path}")
 
 
+def registry_hash(path: Path) -> str:
+    return sha256(path)
+
+
+def registry_rows_hash(rows: list[dict[str, str]]) -> str:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=REGISTRY_COLUMNS, delimiter="\t", extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return hashlib.sha256(buffer.getvalue().encode()).hexdigest()
+
+
+def entity_counts(rows: list[dict[str, str]]) -> dict[str, int]:
+    return {
+        entity: sum(1 for row in rows if row["entity_type"] == entity)
+        for entity in ["MAG", "BGC", "GCF", "PROTEIN", "STRUCTURE"]
+    }
+
+
+def enforce_registry_immutability(existing: dict[tuple[str, str], dict[str, str]], rows: list[dict[str, str]]) -> None:
+    for row in rows:
+        key = (row["entity_type"], row["original_identifier"])
+        previous = existing.get(key)
+        if previous and previous.get("public_accession") != row["public_accession"]:
+            raise SystemExit(
+                "Existing registry maps original identifier differently: "
+                f"{key} {previous.get('public_accession')} != {row['public_accession']}"
+            )
+
+
+def clean_partial_output(output_root: Path) -> Path:
+    partial = output_root.with_name(output_root.name + ".partial")
+    if output_root.exists():
+        raise SystemExit(f"Output root already exists; refusing to overwrite: {output_root}")
+    if partial.exists():
+        shutil.rmtree(partial)
+    partial.mkdir(parents=True)
+    return partial
+
+
+def promote_partial_output(partial: Path, output_root: Path) -> None:
+    if output_root.exists():
+        raise SystemExit(f"Output root appeared before promotion: {output_root}")
+    partial.replace(output_root)
+
+
+def row_maps(rows: list[dict[str, str]]) -> dict[str, dict[str, dict[str, str]]]:
+    return {
+        entity: {row["original_identifier"]: row for row in rows if row["entity_type"] == entity}
+        for entity in ["MAG", "BGC", "GCF", "PROTEIN", "STRUCTURE"]
+    }
+
+
+def copy_release_cifs(source_root: Path, output_root: Path, file_plan: list[dict[str, str]]) -> int:
+    count = 0
+    for row in sorted(file_plan, key=lambda item: item["public_accession"]):
+        if row["entity_type"] != "STRUCTURE":
+            continue
+        source = source_root / row["source_path"]
+        target = output_root / row["public_path"]
+        if not source.exists():
+            raise SystemExit(f"Missing source CIF: {source}")
+        if sha256(source) != row["source_sha256"]:
+            raise SystemExit(f"Source CIF checksum mismatch: {source}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp = target.with_suffix(target.suffix + ".tmp")
+        shutil.copy2(source, temp)
+        if sha256(temp) != row["source_sha256"]:
+            raise SystemExit(f"Copied CIF checksum mismatch: {target}")
+        temp.replace(target)
+        count += 1
+    return count
+
+
+def merge_bgc_structured_comment(record, registry_row: dict[str, str], release_version: str) -> None:
+    structured = dict(record.annotations.get("structured_comment", {}))
+    structured["PHRC_BGCStructDB"] = {
+        "Public-Accession": registry_row["public_accession"],
+        "Source-Collection": registry_row["source_collection"],
+        "Original-BGC-Identifier": registry_row["original_identifier"],
+        "Original-Filename": registry_row["original_filename"],
+        "Release-Version": release_version,
+    }
+    record.annotations["structured_comment"] = structured
+
+
+def deterministic_tar_gz(path: Path, members: list[tuple[str, bytes]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as raw:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
+            with tarfile.open(mode="w", fileobj=gz) as tar:
+                for name, data in sorted(members, key=lambda item: item[0]):
+                    info = tarfile.TarInfo(name)
+                    info.size = len(data)
+                    info.mtime = 0
+                    info.mode = 0o644
+                    info.uid = 0
+                    info.gid = 0
+                    info.uname = ""
+                    info.gname = ""
+                    tar.addfile(info, io.BytesIO(data))
+
+
+def transform_gbk_archive(
+    source_root: Path,
+    output_root: Path,
+    registry_rows: list[dict[str, str]],
+    gbk_transform: list[dict[str, str]],
+    release_version: str,
+) -> int:
+    by_bgc = {row["original_identifier"]: row for row in registry_rows if row["entity_type"] == "BGC"}
+    archive = source_root / "antismash" / "region_gbk.tar.gz"
+    members: list[tuple[str, bytes]] = []
+    with tarfile.open(archive, "r:gz") as tar:
+        for plan in sorted(gbk_transform, key=lambda item: item["public_bgc_accession"]):
+            source_member = plan["source_member"]
+            if is_unsafe_archive_member(source_member):
+                raise SystemExit(f"Unsafe GBK archive member: {source_member}")
+            extracted = tar.extractfile(source_member)
+            if not extracted:
+                raise SystemExit(f"Missing GBK member: {source_member}")
+            data = extracted.read()
+            original = SeqIO.read(io.StringIO(data.decode()), "genbank")
+            before_seq = str(original.seq)
+            before_features = len(original.features)
+            registry_row = by_bgc[plan["source_bgc_id"]]
+            merge_bgc_structured_comment(original, registry_row, release_version)
+            handle = io.StringIO()
+            SeqIO.write(original, handle, "genbank")
+            out_data = handle.getvalue().encode()
+            reparsed = SeqIO.read(io.StringIO(out_data.decode()), "genbank")
+            if str(reparsed.seq) != before_seq or len(reparsed.features) != before_features:
+                raise SystemExit(f"GBK transformation changed sequence/features: {source_member}")
+            members.append((plan["target_member"], out_data))
+    deterministic_tar_gz(output_root / "antismash" / f"BGS_BGC_GBK_{release_version}.tar.gz", members)
+    return len(members)
+
+
+def parse_fasta(path: Path) -> list[tuple[str, str, str]]:
+    records = []
+    header = ""
+    seq_parts: list[str] = []
+    for line in path.read_text().splitlines():
+        if line.startswith(">"):
+            if header:
+                records.append((header.split()[0], header, "".join(seq_parts)))
+            header = line[1:].strip()
+            seq_parts = []
+        else:
+            seq_parts.append(line.strip())
+    if header:
+        records.append((header.split()[0], header, "".join(seq_parts)))
+    return records
+
+
+def write_accession_fasta(source_root: Path, output_root: Path, rows: list[dict[str, str]]) -> int:
+    maps = row_maps(rows)
+    source = source_root / "sequences" / "BGC_proteins.faa"
+    records = parse_fasta(source)
+    out_lines = []
+    seen = set()
+    for original_id, _header, sequence in records:
+        protein = maps["PROTEIN"].get(original_id)
+        if not protein:
+            raise SystemExit(f"Protein FASTA record lacks accession: {original_id}")
+        accession = protein["public_accession"]
+        if accession in seen:
+            raise SystemExit(f"Duplicate protein FASTA accession: {accession}")
+        if not sequence:
+            raise SystemExit(f"Blank protein FASTA sequence: {original_id}")
+        seen.add(accession)
+        out_lines.append(f">{accession} source_collection={protein['source_collection']} bgc={protein['parent_public_accession']}")
+        out_lines.append(sequence)
+    target = output_root / "sequences" / "BGS_BGC_proteins_v1.0.faa"
+    write_text_atomic(target, "\n".join(out_lines) + "\n")
+    return len(records)
+
+
+def gcf_original_from_assignment(row: dict[str, str]) -> str:
+    if row.get("bigscape_gcf_id_full_primary"):
+        return row["bigscape_gcf_id_full_primary"]
+    if row.get("bigscape_gcf_id_full"):
+        return row["bigscape_gcf_id_full"]
+    cutoff = row.get("bigscape_cutoff", "")
+    family = row.get("bigscape_gcf_id", "")
+    klass = row.get("bigscape_class", "")
+    if cutoff and family and klass:
+        return f"c{cutoff}|{klass}|{family}"
+    return ""
+
+
+def transform_public_row(row: dict[str, str], maps: dict[str, dict[str, dict[str, str]]], filename_to_bgc: dict[str, dict[str, str]]) -> dict[str, str]:
+    mag_original = row.get("mag_id") or row.get("genome_id", "")
+    bgc_original = row.get("bgc_id", "")
+    protein_original = row.get("query", "")
+    if not bgc_original:
+        raw = row.get("bigscape_bgc_key") or row.get("bigscape_bgc_raw", "")
+        bgc = filename_to_bgc.get(raw)
+        bgc_original = bgc["original_identifier"] if bgc else ""
+    gcf_original = gcf_original_from_assignment(row)
+    structure = maps["STRUCTURE"].get(protein_original) if protein_original else None
+    out = {
+        "mag_accession": maps["MAG"].get(mag_original, {}).get("public_accession", ""),
+        "bgc_accession": maps["BGC"].get(bgc_original, {}).get("public_accession", ""),
+        "primary_gcf_accession": maps["GCF"].get(gcf_original, {}).get("public_accession", "") if gcf_original else "",
+        "protein_accession": maps["PROTEIN"].get(protein_original, {}).get("public_accession", ""),
+        "structure_accession": structure["public_accession"] if structure else "",
+        "source_collection": "PHRC",
+        "original_mag_id": mag_original,
+        "original_bgc_id": bgc_original,
+        "original_protein_id": protein_original,
+        "original_structure_filename": structure["original_filename"] if structure else "",
+    }
+    for key, value in row.items():
+        if key in PUBLIC_PATH_COLUMNS:
+            continue
+        if isinstance(value, str) and (value.startswith("/Users/") or value.startswith("/scratch/")):
+            continue
+        out[key] = value
+    return out
+
+
+def rewrite_public_tsvs(source_root: Path, output_root: Path, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    maps = row_maps(rows)
+    filename_to_bgc = {
+        bgc["original_filename"].removesuffix(".gbk"): bgc
+        for bgc in rows
+        if bgc["entity_type"] == "BGC" and bgc.get("original_filename")
+    }
+    rewritten = []
+    for source in sorted((source_root / "tables").glob("*.tsv")):
+        if "internal_priority" in source.name or source.name == "drug_discovery_ranked_candidates.tsv":
+            continue
+        source_rows = read_tsv(source)
+        if not source_rows:
+            continue
+        out_rows = [transform_public_row(row, maps, filename_to_bgc) for row in source_rows]
+        fields = list(out_rows[0])
+        target = output_root / "metadata" / "tables" / source.name
+        write_tsv(target, out_rows, fields)
+        rewritten.append({"table": source.name, "rows": str(len(out_rows)), "path": target.relative_to(output_root).as_posix()})
+    return rewritten
+
+
+def archive_release_structures(output_root: Path, file_plan: list[dict[str, str]], release_version: str) -> dict[str, int]:
+    buckets = {"short": [], "medium": [], "long": []}
+    for row in sorted(file_plan, key=lambda item: item["public_accession"]):
+        if row["entity_type"] != "STRUCTURE":
+            continue
+        source_rel = row["source_path"]
+        bucket = "short" if "short" in source_rel else "medium" if "medium" in source_rel else "long"
+        path = output_root / row["public_path"]
+        buckets[bucket].append((Path(row["public_path"]).name, path.read_bytes()))
+    counts = {}
+    for bucket, members in buckets.items():
+        archive = output_root / "structures" / f"BGS_structures_{bucket}_{release_version}.tar.gz"
+        deterministic_tar_gz(archive, members)
+        counts[archive.relative_to(output_root).as_posix()] = len(members)
+    return counts
+
+
+def file_manifest_row(output_root: Path, rel: str, content_type: str, entity_type: str, record_count: int, release_version: str) -> dict[str, str]:
+    path = output_root / rel
+    return {
+        "public_filename": rel,
+        "content_type": content_type,
+        "entity_type": entity_type,
+        "record_count": str(record_count),
+        "size_bytes": str(path.stat().st_size),
+        "sha256": sha256(path),
+        "release_version": release_version,
+        "availability": "public",
+    }
+
+
+def write_manifests(output_root: Path, release_version: str, rows: list[dict[str, str]], fasta_count: int, gbk_count: int, structure_archive_counts: dict[str, int], tsv_rows: list[dict[str, str]]) -> None:
+    manifest = [
+        file_manifest_row(output_root, "metadata/BGS_public_accession_mapping.tsv", "tsv", "accession_mapping", len(rows), release_version),
+        file_manifest_row(output_root, f"sequences/BGS_BGC_proteins_v1.0.faa", "fasta", "PROTEIN", fasta_count, release_version),
+        file_manifest_row(output_root, f"antismash/BGS_BGC_GBK_{release_version}.tar.gz", "tar.gz", "BGC", gbk_count, release_version),
+    ]
+    for rel, count in sorted(structure_archive_counts.items()):
+        manifest.append(file_manifest_row(output_root, rel, "tar.gz", "STRUCTURE", count, release_version))
+    for table in tsv_rows:
+        manifest.append(file_manifest_row(output_root, table["path"], "tsv", "table", int(table["rows"]), release_version))
+    write_tsv(output_root / "manifests" / "public_file_manifest.tsv", manifest, ["public_filename", "content_type", "entity_type", "record_count", "size_bytes", "sha256", "release_version", "availability"])
+    checksum_paths = [row["public_filename"] for row in manifest]
+    sha_lines = []
+    md5_lines = []
+    for rel in sorted(checksum_paths):
+        path = output_root / rel
+        sha_lines.append(f"{sha256(path)}  {rel}")
+        md5 = hashlib.md5(path.read_bytes()).hexdigest()
+        md5_lines.append(f"{md5}  {rel}")
+    write_text_atomic(output_root / "manifests" / "sha256sums.txt", "\n".join(sha_lines) + "\n")
+    write_text_atomic(output_root / "manifests" / "md5sums.txt", "\n".join(md5_lines) + "\n")
+
+
+def validate_release_tree(output_root: Path, rows: list[dict[str, str]], fasta_count: int, gbk_count: int, cif_count: int) -> None:
+    counts = entity_counts(rows)
+    if counts == APPROVED_ENTITY_COUNTS:
+        expected = APPROVED_ENTITY_COUNTS
+        if fasta_count != expected["PROTEIN"] or gbk_count != expected["BGC"] or cif_count != expected["STRUCTURE"]:
+            raise SystemExit("Release output counts do not match approved Phase 1 counts")
+    with tarfile.open(output_root / "antismash" / "BGS_BGC_GBK_v1.0.tar.gz", "r:gz") as tar:
+        names = tar.getnames()
+        if len(names) != gbk_count or len(names) != len(set(names)):
+            raise SystemExit("GBK archive member count/uniqueness validation failed")
+        if any(not re.fullmatch(r"BGS-BGC-\d{6}\.gbk", name) for name in names):
+            raise SystemExit("GBK archive contains non-accession member names")
+    if not (output_root / "manifests" / "public_file_manifest.tsv").exists():
+        raise SystemExit("Missing public file manifest")
+
+
+def build_release_tree(
+    source_root: Path,
+    output_root: Path,
+    registry: Path,
+    rows: list[dict[str, str]],
+    file_plan: list[dict[str, str]],
+    gbk_transform: list[dict[str, str]],
+    gbk_exclusion_manifest: list[dict[str, str]],
+    release_version: str,
+) -> Path:
+    partial = clean_partial_output(output_root)
+    try:
+        for dirname in ["metadata", "sequences", "structures", "antismash", "bigscape", "foldseek", "documentation", "manifests", "provenance"]:
+            (partial / dirname).mkdir(parents=True, exist_ok=True)
+        write_tsv(partial / "metadata" / "BGS_public_accession_mapping.tsv", public_mapping_rows(rows), PUBLIC_MAPPING_COLUMNS)
+        write_tsv(partial / "provenance" / "internal_accession_registry.tsv", rows, REGISTRY_COLUMNS)
+        write_tsv(partial / "provenance" / "gbk_exclusion_manifest.tsv", gbk_exclusion_manifest, GBK_EXCLUSION_COLUMNS)
+        cif_count = copy_release_cifs(source_root, partial, file_plan)
+        gbk_count = transform_gbk_archive(source_root, partial, rows, gbk_transform, release_version)
+        fasta_count = write_accession_fasta(source_root, partial, rows)
+        tsv_rows = rewrite_public_tsvs(source_root, partial, rows)
+        structure_archives = archive_release_structures(partial, file_plan, release_version)
+        write_manifests(partial, release_version, rows, fasta_count, gbk_count, structure_archives, tsv_rows)
+        write_tsv(
+            partial / "provenance" / "internal_migration_log.tsv",
+            [
+                {"key": "release_version", "value": release_version},
+                {"key": "cif_files", "value": str(cif_count)},
+                {"key": "gbk_members", "value": str(gbk_count)},
+                {"key": "fasta_records", "value": str(fasta_count)},
+                {"key": "excluded_gbks", "value": str(len(gbk_exclusion_manifest))},
+            ],
+            ["key", "value"],
+        )
+        validate_release_tree(partial, rows, fasta_count, gbk_count, cif_count)
+        persist_registry(registry, rows)
+        if entity_counts(rows) == APPROVED_ENTITY_COUNTS and registry_hash(registry) != APPROVED_PHASE1_REGISTRY_SHA256:
+            raise SystemExit("Frozen registry hash does not match approved Phase 1 hash")
+        promote_partial_output(partial, output_root)
+    except Exception:
+        if partial.exists():
+            shutil.rmtree(partial)
+        raise
+    return output_root
+
+
 def build_summary(
     records: list[SourceRecord],
     rows: list[dict[str, str]],
     file_plan: list[dict[str, str]],
+    tsv_plan: list[dict[str, str]],
     collisions: list[dict[str, str]],
     missing: list[dict[str, str]],
     gbk_inventory: list[dict[str, str]],
@@ -1082,7 +1454,7 @@ def build_summary(
         },
         "files_to_copy": len(file_plan),
         "files_to_rename": 0,
-        "tsvs_to_rewrite": "deferred_to_phase_3",
+        "tsvs_to_rewrite": len(tsv_plan),
         "collisions": len(collisions),
         "missing_parents": len(missing),
         "unresolved_references": len(missing),
@@ -1153,7 +1525,9 @@ def main() -> int:
     artifact_root = output_root / "artifacts" / "accession_migration"
 
     records, legacy_hits, _ = load_source_records(source_root)
-    rows, collisions = allocate_accessions(records, load_existing_registry(registry), args.release_version)
+    existing_registry = load_existing_registry(registry)
+    rows, collisions = allocate_accessions(records, existing_registry, args.release_version)
+    enforce_registry_immutability(existing_registry, rows)
     missing = fill_relationships(rows, records)
     file_plan, file_collisions = build_file_plan(source_root, output_root, rows)
     collisions.extend(file_collisions)
@@ -1161,23 +1535,24 @@ def main() -> int:
     gbk_inventory, gbk_transform = build_gbk_archive_reports(source_root, rows)
     unmatched_gbk_review, gbk_exclusion_manifest = build_unmatched_gbk_review(source_root, rows, gbk_inventory)
     legacy_classification = classify_legacy_references(legacy_hits)
-    summary = build_summary(records, rows, file_plan, collisions, missing, gbk_inventory, gbk_transform, unmatched_gbk_review, gbk_exclusion_manifest)
-    write_reports(
-        artifact_root,
-        rows,
-        file_plan,
-        tsv_plan,
-        collisions,
-        missing,
-        legacy_hits,
-        legacy_classification,
-        gbk_inventory,
-        gbk_transform,
-        unmatched_gbk_review,
-        gbk_exclusion_manifest,
-        summary,
-        discover_source_roots(source_root),
-    )
+    summary = build_summary(records, rows, file_plan, tsv_plan, collisions, missing, gbk_inventory, gbk_transform, unmatched_gbk_review, gbk_exclusion_manifest)
+    if args.dry_run:
+        write_reports(
+            artifact_root,
+            rows,
+            file_plan,
+            tsv_plan,
+            collisions,
+            missing,
+            legacy_hits,
+            legacy_classification,
+            gbk_inventory,
+            gbk_transform,
+            unmatched_gbk_review,
+            gbk_exclusion_manifest,
+            summary,
+            discover_source_roots(source_root),
+        )
 
     print(json.dumps(summary, indent=2, sort_keys=True))
     if collisions:
@@ -1185,6 +1560,9 @@ def main() -> int:
     if missing:
         print(f"Found {len(missing)} missing parent relationships; see {artifact_root / 'missing_reference_report.tsv'}", file=sys.stderr)
     if args.apply:
+        if entity_counts(rows) == APPROVED_ENTITY_COUNTS and registry_rows_hash(rows) != APPROVED_PHASE1_REGISTRY_SHA256:
+            print("Registry preview hash does not match approved Phase 1 hash.", file=sys.stderr)
+            return 2
         unapproved = unapproved_gbk_members(unmatched_gbk_review, load_approved_gbk_exclusions(args.gbk_exclusion_manifest))
         if unapproved:
             print(
@@ -1194,13 +1572,7 @@ def main() -> int:
             return 2
         if collisions or missing:
             return 2
-        apply_file_plan(source_root, output_root, file_plan)
-        persist_registry(registry, rows)
-        log_lines = ["apply completed"]
-        if approved := load_approved_gbk_exclusions(args.gbk_exclusion_manifest):
-            log_lines.append(f"approved_excluded_gbk_members={len(approved)}")
-            log_lines.extend(f"excluded_gbk={member}" for member in sorted(approved))
-        write_text_atomic(artifact_root / "migration.log", "\n".join(log_lines) + "\n")
+        build_release_tree(source_root, output_root, registry, rows, file_plan, gbk_transform, gbk_exclusion_manifest, args.release_version)
     return 0 if not (args.apply and (collisions or missing)) else 2
 
 
