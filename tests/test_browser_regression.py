@@ -89,8 +89,63 @@ def _assert_no_horizontal_overflow(page):
         })
         """
     )
-    assert dimensions["documentWidth"] <= dimensions["viewportWidth"] + 1, dimensions
-    assert dimensions["bodyWidth"] <= dimensions["viewportWidth"] + 1, dimensions
+    wide_elements = _wide_elements(page)
+    assert dimensions["documentWidth"] <= dimensions["viewportWidth"] + 1, {
+        **dimensions,
+        "wide_elements": wide_elements,
+    }
+    assert dimensions["bodyWidth"] <= dimensions["viewportWidth"] + 1, {
+        **dimensions,
+        "wide_elements": wide_elements,
+    }
+
+
+def _wide_elements(page):
+    return page.evaluate(
+        """
+        () => {
+            const viewportWidth = window.innerWidth;
+            return Array.from(document.querySelectorAll("body *"))
+                .map((el) => {
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    const visible = Boolean(rect.width || rect.height)
+                        && style.display !== "none"
+                        && style.visibility !== "hidden"
+                        && style.opacity !== "0";
+                    return {
+                        tag: el.tagName.toLowerCase(),
+                        className: typeof el.className === "string" ? el.className : "",
+                        testId: el.getAttribute("data-testid") || "",
+                        width: Math.round(rect.width * 100) / 100,
+                        right: Math.round(rect.right * 100) / 100,
+                        scrollWidth: el.scrollWidth,
+                        clientWidth: el.clientWidth,
+                        whiteSpace: style.whiteSpace,
+                        display: style.display,
+                        visible,
+                        layout: el.closest(".downloads-desktop-table, .protein-desktop-table")
+                            ? "desktop"
+                            : (
+                                el.closest(".downloads-mobile-list, .protein-mobile-list, .download-card")
+                                    ? "mobile"
+                                    : "unknown"
+                            ),
+                    };
+                })
+                .filter((item) => (
+                    item.right > viewportWidth + 1
+                    || item.width > viewportWidth + 1
+                    || item.scrollWidth > item.clientWidth + 1
+                ))
+                .sort((a, b) => (
+                    Math.max(b.right - viewportWidth, b.width - viewportWidth, b.scrollWidth - b.clientWidth)
+                    - Math.max(a.right - viewportWidth, a.width - viewportWidth, a.scrollWidth - a.clientWidth)
+                ))
+                .slice(0, 20);
+        }
+        """
+    )
 
 
 @pytest.mark.parametrize("path", ["/", "/proteins", "/downloads", f"/proteins/{PROTEIN_ID}"])
@@ -101,7 +156,7 @@ def test_key_pages_do_not_overflow_mobile(browser, live_server, path):
         if path == "/":
             page.locator(".site-header").wait_for(state="visible", timeout=30_000)
         elif path == "/proteins":
-            page.locator(".mobile-cards").first.wait_for(state="visible", timeout=30_000)
+            page.get_by_test_id("protein-mobile-card").first.wait_for(state="visible", timeout=30_000)
         elif path.startswith("/proteins/"):
             page.locator(".structure-viewer").wait_for(state="visible", timeout=30_000)
         _assert_no_horizontal_overflow(page)
@@ -154,15 +209,31 @@ def test_visual_polish_browser_contracts(browser, live_server):
     page = browser.new_page(viewport={"width": 390, "height": 844})
     try:
         open_page(page, live_server + "/proteins")
-        page.locator(".mobile-cards").first.wait_for(state="visible", timeout=30_000)
-        cards = page.locator(".data-table.mobile-cards tbody tr")
+        cards = page.get_by_test_id("protein-mobile-card")
         assert cards.count() > 0, f"No mobile protein cards were rendered on {page.url}"
         first_card = cards.first
         first_card.wait_for(state="visible", timeout=30_000)
+
+        details = first_card.locator("details.protein-card-extra")
+        if details.count():
+            assert details.first.get_attribute("open") is None
+
         card_box = first_card.bounding_box()
         assert card_box is not None
-        assert card_box["height"] < 280, card_box
-        assert first_card.locator(".protein-card-extra").count() == 1
+        assert card_box["height"] < 280, {
+            "box": card_box,
+            "text": first_card.inner_text()[:500],
+            "details_open": (
+                details.first.get_attribute("open")
+                if details.count()
+                else None
+            ),
+        }
+        assert details.count() == 1
+        details.first.locator("summary").click()
+        assert details.first.get_attribute("open") is not None
+        details.first.locator("summary").click()
+        assert details.first.get_attribute("open") is None
     finally:
         page.close()
 
@@ -180,5 +251,67 @@ def test_visual_polish_browser_contracts(browser, live_server):
         page.locator(".gene-track-wrap").wait_for(state="visible", timeout=30_000)
         scrollable = page.locator(".gene-track-wrap").evaluate("el => el.scrollWidth > el.clientWidth")
         assert scrollable
+    finally:
+        page.close()
+
+
+def test_download_cards_fit_mobile_viewport(browser, live_server):
+    page = browser.new_page(viewport={"width": 390, "height": 844})
+    try:
+        open_page(page, live_server + "/downloads")
+        cards = page.get_by_test_id("download-card")
+        assert cards.count() > 0, f"No mobile download cards rendered on {page.url}"
+
+        dimensions = page.evaluate(
+            """
+            () => ({
+                documentWidth: document.documentElement.scrollWidth,
+                bodyWidth: document.body.scrollWidth,
+            })
+            """
+        )
+        wide_elements = _wide_elements(page)
+        assert dimensions["documentWidth"] <= 391, {
+            **dimensions,
+            "wide_elements": wide_elements,
+        }
+        assert dimensions["bodyWidth"] <= 391, {
+            **dimensions,
+            "wide_elements": wide_elements,
+        }
+
+        desktop_layout = page.locator(".downloads-desktop-table")
+        if desktop_layout.count():
+            assert desktop_layout.first.evaluate("el => getComputedStyle(el).display") == "none"
+
+        for index in range(min(cards.count(), 6)):
+            card = cards.nth(index)
+            card_box = card.bounding_box()
+            assert card_box is not None
+            card_left = card_box["x"]
+            card_right = card_box["x"] + card_box["width"]
+            assert card_left >= 0
+            assert card_right <= 391, {
+                "card": card_box,
+                "wide_elements": wide_elements,
+            }
+
+            for selector in [
+                ".download-filename",
+                ".download-checksum-value",
+                ".download-actions",
+            ]:
+                for element_index in range(card.locator(selector).count()):
+                    element_box = card.locator(selector).nth(element_index).bounding_box()
+                    assert element_box is not None
+                    element_left = element_box["x"]
+                    element_right = element_box["x"] + element_box["width"]
+                    assert element_left >= card_left - 1
+                    assert element_right <= card_right + 1, {
+                        "selector": selector,
+                        "card": card_box,
+                        "element": element_box,
+                        "wide_elements": wide_elements,
+                    }
     finally:
         page.close()

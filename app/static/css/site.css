@@ -12,3 +12,156 @@
 @media (max-width:900px){.site-nav{min-height:60px}.site-nav .page-shell{min-height:60px}.nav-overlay:not([hidden]){display:block}.nav-drawer{height:100dvh}.nav-list{align-items:stretch}.site-nav .nav-link{padding:.72rem .75rem!important}.site-nav .nav-link.active{background:rgba(126,224,230,.14)}.nav-list .dropdown-toggle{font-weight:800}.metric-sections{grid-template-columns:1fr}.compact-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-scroll .chart-grid{display:flex;gap:12px;overflow:visible}.chart-scroll .chart-card{min-width:min(82vw,420px)}.chart-scroll .small-chart{height:260px}.mobile-hint{display:block}.gene-track-wrap{overflow-x:auto}.gene-track-inner{min-width:760px}}
 @media (max-width:768px){.data-table.mobile-cards tr{padding:10px}.data-table.mobile-cards td{padding:5px 0}.data-table.mobile-cards td.desktop-extra{display:none}.data-table.mobile-cards td[data-label="Detail"]{border-top:1px solid var(--color-line);margin-top:4px;padding-top:8px}.protein-card-extra{display:block;margin-top:6px}.protein-card-extra summary{cursor:pointer;color:var(--color-teal);font-weight:800;font-size:.86rem}.protein-card-extra dl{display:grid;grid-template-columns:minmax(90px,.42fr) minmax(0,1fr);gap:4px 10px;margin:8px 0 0}.protein-card-extra dt{font-size:.72rem;color:var(--color-muted);font-weight:800;text-transform:uppercase}.protein-card-extra dd{margin:0;overflow-wrap:anywhere}.identifier-row{grid-template-columns:1fr auto;gap:4px 8px}.identifier-label{grid-column:1/-1}.identifier-value{max-width:100%}.copy-button{align-self:start}.viewer-controls{gap:5px}.viewer-controls button{padding:4px 7px}.coverage-card{padding:12px}.coverage-card div{grid-template-columns:1fr}.coverage-card strong{font-size:1.35rem}}
 @media (max-width:520px){.hero{padding:34px 0 26px}.hero .subtitle{font-size:1.05rem}.lead{font-size:.96rem}.stat-card{padding:12px}.stat-card strong{font-size:1.35rem}.stat-card p{display:none}.chart-scroll{margin-right:-16px;padding-right:16px}.chart-scroll .chart-card{min-width:330px}.section{padding-top:24px;padding-bottom:24px}}
+
+.download-card,
+.download-card * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.download-card {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  overflow: hidden;
+}
+
+.download-card-main,
+.download-filename,
+.download-description,
+.download-meta,
+.download-checksum {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.download-filename,
+.download-description,
+.download-checksum {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.download-card p,
+.download-description {
+  margin: 0.25rem 0;
+}
+
+.download-checksum-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.download-checksum-value {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.download-actions > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.protein-mobile-list {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .downloads-desktop-table,
+  .protein-desktop-table {
+    display: none !important;
+  }
+
+  .download-list,
+  .downloads-mobile-list,
+  .protein-mobile-list {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .download-list,
+  .downloads-mobile-list {
+    gap: 1rem;
+  }
+
+  .protein-mobile-list {
+    gap: 0.875rem;
+  }
+
+  .download-card {
+    padding: 1rem;
+  }
+
+  .protein-mobile-card {
+    display: grid;
+    gap: 0.55rem;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.875rem;
+    box-sizing: border-box;
+  }
+
+  .protein-mobile-card * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .protein-mobile-card .record-title {
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .protein-mobile-card .record-product {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .protein-mobile-card .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .protein-mobile-card .badge-token {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.72rem;
+  }
+
+  .protein-card-extra {
+    margin-top: 0.15rem;
+  }
+
+  .protein-card-extra:not([open]) > :not(summary) {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .downloads-mobile-list,
+  .protein-mobile-list {
+    display: none !important;
+  }
+}

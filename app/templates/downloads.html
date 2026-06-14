@@ -13,18 +13,18 @@
   <h2>{{ category }}</h2>
   <div class="download-list">
     {% for item in items %}
-    <article class="download-card">
+    <article class="download-card" data-testid="download-card">
       <div class="download-card-main">
         <strong class="download-filename" title="{{ item.filename }}">{{ item.filename }}</strong>
         <span class="badge-token">{{ category }}</span>
-        <p>{{ item.description }}</p>
-        <div class="download-checksum-row">
+        <p class="download-description">{{ item.description }}</p>
+        <div class="download-checksum-row download-checksum">
           <span class="metadata-label">MD5</span>
           {% if item.md5 %}
-          <code class="download-checksum" title="{{ item.md5 }}">{{ item.md5[:12] }}...{{ item.md5[-8:] }}</code>
+          <code class="download-checksum-value" title="{{ item.md5 }}">{{ item.md5[:12] }}...{{ item.md5[-8:] }}</code>
           <button class="copy-button" type="button" data-copy-value="{{ item.md5 }}" aria-label="Copy MD5 checksum for {{ item.filename }}">Copy</button>
           {% else %}
-          <span class="download-checksum muted">md5 unavailable</span>
+          <span class="download-checksum-value muted">md5 unavailable</span>
           {% endif %}
         </div>
       </div>
