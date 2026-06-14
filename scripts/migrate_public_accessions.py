@@ -10,13 +10,18 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
+import posixpath
 import re
 import shutil
 import sys
+import tarfile
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+
+from Bio import SeqIO
 
 
 REGISTRY_COLUMNS = [
@@ -62,6 +67,64 @@ COLLISION_COLUMNS = ["collision_type", "entity_type", "identifier", "first_value
 ROLLBACK_COLUMNS = ["public_path", "source_path", "action", "restore_action"]
 TSV_PLAN_COLUMNS = ["source_tsv", "planned_public_columns", "planned_original_columns", "notes"]
 LEGACY_COLUMNS = ["source", "field", "identifier", "token"]
+LEGACY_CLASSIFICATION_COLUMNS = ["source", "field", "identifier", "token", "classification", "reason"]
+GBK_INVENTORY_COLUMNS = [
+    "archive_member",
+    "basename",
+    "normalized_source_identifier",
+    "matched_bgc_original_identifier",
+    "matched_bgc_accession",
+    "match_method",
+    "match_status",
+    "size_bytes",
+]
+GBK_TRANSFORM_COLUMNS = [
+    "source_member",
+    "source_bgc_id",
+    "public_bgc_accession",
+    "target_member",
+    "content_change_required",
+    "planned_record_id",
+    "planned_record_name",
+    "planned_public_accession_field",
+]
+UNMATCHED_GBK_REVIEW_COLUMNS = [
+    "archive_member",
+    "basename",
+    "record_id",
+    "record_name",
+    "record_description",
+    "sequence_length",
+    "feature_count",
+    "region_number",
+    "contig_identifier",
+    "sample_identifier",
+    "bin_identifier",
+    "candidate_original_bgc_id",
+    "candidate_existing_bgc_accession",
+    "candidate_match_score",
+    "candidate_match_reason",
+    "classification",
+    "exclusion_reason",
+    "recommended_action",
+    "evidence",
+]
+GBK_EXCLUSION_COLUMNS = ["archive_member", "classification", "reason", "evidence", "source_release", "review_status"]
+PUBLIC_MAPPING_COLUMNS = [
+    "entity_type",
+    "public_accession",
+    "source_collection",
+    "original_identifier",
+    "original_filename",
+    "parent_public_accession",
+    "parent_original_identifier",
+    "source_sample_id",
+    "source_bin_id",
+    "source_contig_id",
+    "source_region_id",
+    "release_version_created",
+    "accession_status",
+]
 
 ENTITY_PREFIX = {
     "MAG": "BGS-MAG",
@@ -570,6 +633,402 @@ def tsv_column_plan(source_root: Path) -> list[dict[str, str]]:
     return rows
 
 
+def is_unsafe_archive_member(member: str) -> bool:
+    parts = member.split("/")
+    return member.startswith("/") or any(part == ".." for part in parts)
+
+
+def normalized_gbk_identifier(basename: str) -> str:
+    stem = basename.removesuffix(".gbk")
+    return stem.replace(".region", "_region")
+
+
+def planned_bgc_structured_comment(
+    public_accession: str,
+    source_collection: str,
+    original_identifier: str,
+    original_filename: str,
+) -> dict[str, dict[str, str]]:
+    return {
+        "PHRC_BGCStructDB": {
+            "Public-Accession": public_accession,
+            "Source-Collection": source_collection,
+            "Original-BGC-Identifier": original_identifier,
+            "Original-Filename": original_filename,
+        }
+    }
+
+
+def build_gbk_archive_reports(
+    source_root: Path,
+    registry_rows: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    archive = source_root / "antismash" / "region_gbk.tar.gz"
+    bgcs_by_filename = {
+        row["original_filename"]: row
+        for row in registry_rows
+        if row["entity_type"] == "BGC" and row.get("original_filename")
+    }
+    bgcs_by_parent_filename = {
+        (row.get("parent_original_identifier", ""), row["original_filename"]): row
+        for row in registry_rows
+        if row["entity_type"] == "BGC" and row.get("original_filename")
+    }
+    known_mag_dirs = {row["original_identifier"] for row in registry_rows if row["entity_type"] == "MAG"}
+    inventory: list[dict[str, str]] = []
+    transform: list[dict[str, str]] = []
+    matched_originals: set[str] = set()
+    if not archive.exists():
+        for row in sorted(bgcs_by_filename.values(), key=lambda item: item["public_accession"]):
+            inventory.append(
+                {
+                    "archive_member": "",
+                    "basename": row["original_filename"],
+                    "normalized_source_identifier": normalized_gbk_identifier(row["original_filename"]),
+                    "matched_bgc_original_identifier": row["original_identifier"],
+                    "matched_bgc_accession": row["public_accession"],
+                    "match_method": "original_filename",
+                    "match_status": "bgc_without_gbk",
+                    "size_bytes": "",
+                }
+            )
+        return inventory, transform
+
+    members = []
+    with tarfile.open(archive, "r:gz") as tar:
+        for member in tar.getmembers():
+            if member.isfile():
+                members.append(member)
+    basename_counts: dict[str, int] = {}
+    for member in members:
+        basename = posixpath.basename(member.name)
+        basename_counts[basename] = basename_counts.get(basename, 0) + 1
+
+    target_members: set[str] = set()
+    for member in members:
+        basename = posixpath.basename(member.name)
+        dirname = posixpath.dirname(member.name).removeprefix("./")
+        normalized = normalized_gbk_identifier(basename)
+        row = bgcs_by_parent_filename.get((dirname, basename)) if dirname else bgcs_by_filename.get(basename)
+        status = "matched"
+        method = "parent_original_identifier+original_filename" if dirname and row else "original_filename"
+        matched_original = row["original_identifier"] if row else ""
+        matched_accession = row["public_accession"] if row else ""
+        if is_unsafe_archive_member(member.name):
+            status = "unsafe_path"
+            method = ""
+            row = None
+            matched_original = ""
+            matched_accession = ""
+        elif dirname and dirname not in known_mag_dirs:
+            status = "unexpected_directory"
+            method = ""
+            row = None
+            matched_original = ""
+            matched_accession = ""
+        elif not basename.endswith(".gbk"):
+            status = "non_gbk"
+            method = ""
+            row = None
+            matched_original = ""
+            matched_accession = ""
+        elif basename_counts.get(basename, 0) > 1 and not dirname:
+            status = "duplicate_basename"
+            method = "original_filename"
+        elif not row:
+            status = "unmatched"
+            method = "original_filename"
+
+        inventory.append(
+            {
+                "archive_member": member.name,
+                "basename": basename,
+                "normalized_source_identifier": normalized,
+                "matched_bgc_original_identifier": matched_original,
+                "matched_bgc_accession": matched_accession,
+                "match_method": method,
+                "match_status": status,
+                "size_bytes": str(member.size),
+            }
+        )
+        if row and status == "matched":
+            matched_originals.add(row["original_identifier"])
+            target_member = f"{row['public_accession']}.gbk"
+            target_status = "filename_collision" if target_member in target_members else "matched"
+            target_members.add(target_member)
+            if target_status == "filename_collision":
+                inventory[-1]["match_status"] = target_status
+            else:
+                transform.append(
+                    {
+                        "source_member": member.name,
+                        "source_bgc_id": row["original_identifier"],
+                        "public_bgc_accession": row["public_accession"],
+                        "target_member": target_member,
+                        "content_change_required": "structured_comment_only",
+                        "planned_record_id": "preserve_source_record_id",
+                        "planned_record_name": "preserve_source_record_name",
+                        "planned_public_accession_field": "StructuredComment.PHRC_BGCStructDB.Public-Accession",
+                    }
+                )
+
+    for row in sorted(bgcs_by_filename.values(), key=lambda item: item["public_accession"]):
+        if row["original_identifier"] in matched_originals:
+            continue
+        inventory.append(
+            {
+                "archive_member": "",
+                "basename": row["original_filename"],
+                "normalized_source_identifier": normalized_gbk_identifier(row["original_filename"]),
+                "matched_bgc_original_identifier": row["original_identifier"],
+                "matched_bgc_accession": row["public_accession"],
+                "match_method": "original_filename",
+                "match_status": "bgc_without_gbk",
+                "size_bytes": "",
+            }
+        )
+    return inventory, transform
+
+
+def candidate_bgc_id(parent_mag: str, basename: str) -> str:
+    stem = basename.removesuffix(".gbk")
+    if ".region" in stem:
+        contig, region_suffix = stem.rsplit(".region", 1)
+        region = f"region{region_suffix}"
+    else:
+        contig = stem
+        region = ""
+    return f"{parent_mag.replace('__', '_')}_{contig}_{region}".rstrip("_")
+
+
+def sample_from_identifier(value: str) -> str:
+    match = re.search(r"[A-Z]+_NA\d+_S\d+", value)
+    return match.group(0) if match else ""
+
+
+def load_table_texts(source_root: Path) -> dict[str, str]:
+    texts = {}
+    for path in sorted((source_root / "tables").glob("*.tsv")):
+        texts[path.name] = path.read_text(errors="ignore")
+    return texts
+
+
+def exact_source_hits(texts: dict[str, str], terms: list[str]) -> list[str]:
+    hits = []
+    for name, text in texts.items():
+        matched = [term for term in terms if term and term in text]
+        if matched:
+            hits.append(f"{name}:{','.join(sorted(set(matched))[:4])}")
+    return hits
+
+
+def build_unmatched_gbk_review(
+    source_root: Path,
+    registry_rows: list[dict[str, str]],
+    gbk_inventory: list[dict[str, str]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    archive = source_root / "antismash" / "region_gbk.tar.gz"
+    if not archive.exists():
+        return [], []
+    bgc_rows = [row for row in registry_rows if row["entity_type"] == "BGC"]
+    mag_ids = {row["original_identifier"] for row in registry_rows if row["entity_type"] == "MAG"}
+    by_accession = {row["public_accession"]: row for row in bgc_rows}
+    matched_members = [row for row in gbk_inventory if row["match_status"] == "matched"]
+    unmatched_members = [row for row in gbk_inventory if row["match_status"] in {"unmatched", "non_gbk", "unexpected_directory", "duplicate_basename", "filename_collision"}]
+    table_texts = load_table_texts(source_root)
+    sequence_to_accession: dict[str, str] = {}
+    content_to_accession: dict[str, str] = {}
+    with tarfile.open(archive, "r:gz") as tar:
+        for row in matched_members:
+            handle = tar.extractfile(row["archive_member"])
+            if not handle:
+                continue
+            data = handle.read()
+            content_to_accession[hashlib.sha256(data).hexdigest()] = row["matched_bgc_accession"]
+            try:
+                record = SeqIO.read(io.StringIO(data.decode()), "genbank")
+            except Exception:
+                continue
+            sequence_to_accession[hashlib.sha256(str(record.seq).encode()).hexdigest()] = row["matched_bgc_accession"]
+
+        review_rows: list[dict[str, str]] = []
+        for row in unmatched_members:
+            member = row["archive_member"]
+            handle = tar.extractfile(member) if member else None
+            parent_mag = posixpath.dirname(member).removeprefix("./") if member else ""
+            basename = row["basename"]
+            fallback = {
+                "archive_member": member,
+                "basename": basename,
+                "record_id": "",
+                "record_name": "",
+                "record_description": "",
+                "sequence_length": "",
+                "feature_count": "",
+                "region_number": "",
+                "contig_identifier": basename.removesuffix(".gbk").split(".region", 1)[0],
+                "sample_identifier": sample_from_identifier(member),
+                "bin_identifier": extract_bin_id(parent_mag),
+                "candidate_original_bgc_id": candidate_bgc_id(parent_mag, basename),
+                "candidate_existing_bgc_accession": "",
+                "candidate_match_score": "0.00",
+                "candidate_match_reason": "not parsed",
+                "classification": "unresolved",
+                "exclusion_reason": "Unable to parse archive member for review.",
+                "recommended_action": "manual_review_required",
+                "evidence": f"archive_status={row['match_status']}",
+            }
+            if not handle:
+                review_rows.append(fallback)
+                continue
+            data = handle.read()
+            try:
+                record = SeqIO.read(io.StringIO(data.decode()), "genbank")
+            except Exception as exc:
+                fallback["exclusion_reason"] = f"GenBank parse failed: {exc}"
+                review_rows.append(fallback)
+                continue
+            region_features = [feature for feature in record.features if feature.type == "region"]
+            protoclusters = [feature for feature in record.features if feature.type == "protocluster"]
+            region_number = ""
+            if region_features:
+                region_number = (region_features[0].qualifiers.get("region_number") or [""])[0]
+            if not region_number and ".region" in basename:
+                region_number = basename.rsplit(".region", 1)[1].removesuffix(".gbk").lstrip("0") or "0"
+            contig = basename.removesuffix(".gbk").split(".region", 1)[0]
+            candidate = candidate_bgc_id(parent_mag, basename)
+            terms = [basename, basename.removesuffix(".gbk"), contig, record.id, candidate, parent_mag]
+            source_hits = exact_source_hits(table_texts, terms)
+            content_hash = hashlib.sha256(data).hexdigest()
+            seq_hash = hashlib.sha256(str(record.seq).encode()).hexdigest()
+            existing = content_to_accession.get(content_hash) or sequence_to_accession.get(seq_hash, "")
+            parent_in_registry = parent_mag in mag_ids
+            true_region = bool(region_features or protoclusters)
+            if not true_region:
+                classification = "auxiliary_non_region_file"
+                recommended = "exclude_from_public_archive"
+                score = "0.10"
+                reason = "Parsed GenBank lacks antiSMASH region/protocluster features."
+            elif not parent_in_registry:
+                classification = "excluded_parent_mag"
+                recommended = "exclude_from_public_archive"
+                score = "0.30"
+                reason = "Parent MAG is not present in the public MAG registry."
+            elif existing:
+                classification = "duplicate_content"
+                recommended = "exclude_from_public_archive"
+                score = "1.00"
+                reason = f"Exact {'content' if content_hash in content_to_accession else 'sequence'} checksum matches {existing}."
+            else:
+                classification = "superseded_record"
+                recommended = "exclude_from_public_archive"
+                score = "0.60"
+                reason = "Archive-only true region record absent from BGC/protein/integrated public summary tables; retained as internal provenance."
+            products = []
+            for feature in region_features + protoclusters:
+                products.extend(feature.qualifiers.get("product", []))
+            review_rows.append(
+                {
+                    "archive_member": member,
+                    "basename": basename,
+                    "record_id": record.id,
+                    "record_name": record.name,
+                    "record_description": record.description,
+                    "sequence_length": str(len(record.seq)),
+                    "feature_count": str(len(record.features)),
+                    "region_number": region_number,
+                    "contig_identifier": contig,
+                    "sample_identifier": sample_from_identifier(member),
+                    "bin_identifier": extract_bin_id(parent_mag),
+                    "candidate_original_bgc_id": candidate,
+                    "candidate_existing_bgc_accession": existing,
+                    "candidate_match_score": score,
+                    "candidate_match_reason": reason,
+                    "classification": classification,
+                    "exclusion_reason": reason,
+                    "recommended_action": recommended,
+                    "evidence": "; ".join(
+                        [
+                            f"parent_mag={parent_mag}",
+                            f"parent_mag_in_registry={parent_in_registry}",
+                            f"region_features={len(region_features)}",
+                            f"protoclusters={len(protoclusters)}",
+                            f"products={ '|'.join(products[:4]) }",
+                            f"source_hits={ '|'.join(source_hits[:8]) }",
+                            "mag_qc_table=not_packaged",
+                        ]
+                    ),
+                }
+            )
+    exclusion_rows = [
+        {
+            "archive_member": row["archive_member"],
+            "classification": row["classification"],
+            "reason": row["exclusion_reason"],
+            "evidence": row["evidence"],
+            "source_release": "PHRC_BGCStructDB_v1",
+            "review_status": "approved_for_exclusion" if row["recommended_action"] == "exclude_from_public_archive" and row["classification"] != "unresolved" else "manual_review_required",
+        }
+        for row in review_rows
+        if row["recommended_action"] in {"exclude_from_public_archive", "manual_review_required"}
+    ]
+    return review_rows, exclusion_rows
+
+
+def load_approved_gbk_exclusions(path: Path | None) -> set[str]:
+    if not path:
+        return set()
+    return {
+        row["archive_member"]
+        for row in read_tsv(path)
+        if row.get("review_status") == "approved_for_exclusion"
+    }
+
+
+def unapproved_gbk_members(review_rows: list[dict[str, str]], approved: set[str]) -> list[str]:
+    return [
+        row["archive_member"]
+        for row in review_rows
+        if row["archive_member"] and row["archive_member"] not in approved
+    ]
+
+
+def classify_legacy_references(legacy_hits: list[dict[str, str]]) -> list[dict[str, str]]:
+    allowed_fields = {
+        "mag_id",
+        "genome_id",
+        "bgc_id",
+        "query",
+        "region_basename",
+        "contig_id",
+        "original_identifier",
+        "original_filename",
+        "source_sample_id",
+        "source_bin_id",
+        "source_contig_id",
+        "source_region_id",
+    }
+    filename_fields = {"filename", "file", "path", "relative_path", "public_path", "archive_member"}
+    rows = []
+    for hit in legacy_hits:
+        field = hit.get("field", "")
+        if field in allowed_fields or field.startswith("original_") or field.startswith("source_"):
+            classification = "allowed_provenance"
+            reason = "legacy token appears in explicit provenance field"
+        elif field in filename_fields or "url" in field.lower() or "display" in field.lower() or "accession" in field.lower():
+            classification = "must_rewrite"
+            reason = "legacy token appears in public filename, URL, display, or accession field"
+        else:
+            classification = "false_positive"
+            reason = "not currently used as a public identifier field in Phase 1 scan"
+        rows.append({**hit, "classification": classification, "reason": reason})
+    return rows
+
+
+def public_mapping_rows(registry_rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [{column: row.get(column, "") for column in PUBLIC_MAPPING_COLUMNS} for row in registry_rows]
+
+
 def rollback_manifest(file_plan: list[dict[str, str]]) -> list[dict[str, str]]:
     return [
         {
@@ -597,7 +1056,21 @@ def apply_file_plan(source_root: Path, output_root: Path, file_plan: list[dict[s
             raise SystemExit(f"Checksum mismatch after copy: {target_path}")
 
 
-def build_summary(records: list[SourceRecord], rows: list[dict[str, str]], file_plan: list[dict[str, str]], collisions: list[dict[str, str]], missing: list[dict[str, str]]) -> dict[str, object]:
+def build_summary(
+    records: list[SourceRecord],
+    rows: list[dict[str, str]],
+    file_plan: list[dict[str, str]],
+    collisions: list[dict[str, str]],
+    missing: list[dict[str, str]],
+    gbk_inventory: list[dict[str, str]],
+    gbk_transform: list[dict[str, str]],
+    unmatched_gbk_review: list[dict[str, str]],
+    gbk_exclusion_manifest: list[dict[str, str]],
+) -> dict[str, object]:
+    gbk_status_counts: dict[str, int] = {}
+    for row in gbk_inventory:
+        status = row["match_status"]
+        gbk_status_counts[status] = gbk_status_counts.get(status, 0) + 1
     return {
         "records_mapped": {
             entity: sum(1 for row in rows if row["entity_type"] == entity)
@@ -613,6 +1086,11 @@ def build_summary(records: list[SourceRecord], rows: list[dict[str, str]], file_
         "collisions": len(collisions),
         "missing_parents": len(missing),
         "unresolved_references": len(missing),
+        "gbk_archive_members": sum(1 for row in gbk_inventory if row["archive_member"]),
+        "gbk_transform_members": len(gbk_transform),
+        "approved_excluded_gbks": sum(1 for row in gbk_exclusion_manifest if row["review_status"] == "approved_for_exclusion"),
+        "unresolved_gbks": sum(1 for row in gbk_exclusion_manifest if row["review_status"] != "approved_for_exclusion"),
+        "gbk_status_counts": gbk_status_counts,
     }
 
 
@@ -624,15 +1102,27 @@ def write_reports(
     collisions: list[dict[str, str]],
     missing: list[dict[str, str]],
     legacy_hits: list[dict[str, str]],
+    legacy_classification: list[dict[str, str]],
+    gbk_inventory: list[dict[str, str]],
+    gbk_transform: list[dict[str, str]],
+    unmatched_gbk_review: list[dict[str, str]],
+    gbk_exclusion_manifest: list[dict[str, str]],
     summary: dict[str, object],
     source_roots: list[dict[str, str]],
 ) -> None:
     write_tsv(artifact_root / "accession_registry_preview.tsv", rows, REGISTRY_COLUMNS)
+    write_tsv(artifact_root / "internal_accession_registry.tsv", rows, REGISTRY_COLUMNS)
+    write_tsv(artifact_root / "public_accession_mapping.tsv", public_mapping_rows(rows), PUBLIC_MAPPING_COLUMNS)
     write_tsv(artifact_root / "file_rename_plan.tsv", file_plan, FILE_PLAN_COLUMNS)
     write_tsv(artifact_root / "tsv_column_plan.tsv", tsv_plan, TSV_PLAN_COLUMNS)
     write_tsv(artifact_root / "collision_report.tsv", collisions, COLLISION_COLUMNS)
     write_tsv(artifact_root / "missing_reference_report.tsv", missing, MISSING_COLUMNS)
     write_tsv(artifact_root / "legacy_reference_report.tsv", legacy_hits, LEGACY_COLUMNS)
+    write_tsv(artifact_root / "legacy_reference_classification.tsv", legacy_classification, LEGACY_CLASSIFICATION_COLUMNS)
+    write_tsv(artifact_root / "gbk_archive_inventory.tsv", gbk_inventory, GBK_INVENTORY_COLUMNS)
+    write_tsv(artifact_root / "gbk_transform_plan.tsv", gbk_transform, GBK_TRANSFORM_COLUMNS)
+    write_tsv(artifact_root / "unmatched_gbk_review.tsv", unmatched_gbk_review, UNMATCHED_GBK_REVIEW_COLUMNS)
+    write_tsv(artifact_root / "gbk_exclusion_manifest.tsv", gbk_exclusion_manifest, GBK_EXCLUSION_COLUMNS)
     write_tsv(artifact_root / "rollback_manifest.tsv", rollback_manifest(file_plan), ROLLBACK_COLUMNS)
     write_tsv(artifact_root / "source_root_inventory.tsv", source_roots, ["path", "exists", "kind"])
     write_text_atomic(artifact_root / "count_summary.json", json.dumps(summary, indent=2, sort_keys=True) + "\n")
@@ -648,6 +1138,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--registry", required=True, type=Path)
     parser.add_argument("--release-version", required=True)
+    parser.add_argument("--gbk-exclusion-manifest", type=Path)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
@@ -667,7 +1158,10 @@ def main() -> int:
     file_plan, file_collisions = build_file_plan(source_root, output_root, rows)
     collisions.extend(file_collisions)
     tsv_plan = tsv_column_plan(source_root)
-    summary = build_summary(records, rows, file_plan, collisions, missing)
+    gbk_inventory, gbk_transform = build_gbk_archive_reports(source_root, rows)
+    unmatched_gbk_review, gbk_exclusion_manifest = build_unmatched_gbk_review(source_root, rows, gbk_inventory)
+    legacy_classification = classify_legacy_references(legacy_hits)
+    summary = build_summary(records, rows, file_plan, collisions, missing, gbk_inventory, gbk_transform, unmatched_gbk_review, gbk_exclusion_manifest)
     write_reports(
         artifact_root,
         rows,
@@ -676,6 +1170,11 @@ def main() -> int:
         collisions,
         missing,
         legacy_hits,
+        legacy_classification,
+        gbk_inventory,
+        gbk_transform,
+        unmatched_gbk_review,
+        gbk_exclusion_manifest,
         summary,
         discover_source_roots(source_root),
     )
@@ -686,11 +1185,22 @@ def main() -> int:
     if missing:
         print(f"Found {len(missing)} missing parent relationships; see {artifact_root / 'missing_reference_report.tsv'}", file=sys.stderr)
     if args.apply:
+        unapproved = unapproved_gbk_members(unmatched_gbk_review, load_approved_gbk_exclusions(args.gbk_exclusion_manifest))
+        if unapproved:
+            print(
+                f"Found {len(unapproved)} unapproved extra GBK archive members; provide --gbk-exclusion-manifest after review.",
+                file=sys.stderr,
+            )
+            return 2
         if collisions or missing:
             return 2
         apply_file_plan(source_root, output_root, file_plan)
         persist_registry(registry, rows)
-        write_text_atomic(artifact_root / "migration.log", "apply completed\n")
+        log_lines = ["apply completed"]
+        if approved := load_approved_gbk_exclusions(args.gbk_exclusion_manifest):
+            log_lines.append(f"approved_excluded_gbk_members={len(approved)}")
+            log_lines.extend(f"excluded_gbk={member}" for member in sorted(approved))
+        write_text_atomic(artifact_root / "migration.log", "\n".join(log_lines) + "\n")
     return 0 if not (args.apply and (collisions or missing)) else 2
 
 

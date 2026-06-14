@@ -59,10 +59,11 @@ def add_error(errors: list[dict[str, str]], code: str, detail: str) -> None:
     errors.append({"code": code, "detail": detail})
 
 
-def validate_registry(registry: Path, release_root: Path) -> dict[str, object]:
+def validate_registry(registry: Path, release_root: Path, phase: str) -> dict[str, object]:
     fieldnames, rows = read_tsv(registry)
     errors: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
+    planned_files = 0
     missing = [column for column in REQUIRED_COLUMNS if column not in fieldnames]
     if missing:
         add_error(errors, "missing_columns", ",".join(missing))
@@ -98,7 +99,9 @@ def validate_registry(registry: Path, release_root: Path) -> dict[str, object]:
             if path.exists() and expected and sha256(path) != expected:
                 add_error(errors, "public_checksum_mismatch", public_path)
             elif not path.exists() and expected:
-                warnings.append({"code": "public_file_missing", "detail": public_path})
+                planned_files += 1
+                if phase == "applied":
+                    add_error(errors, "public_file_missing", public_path)
 
     for row in rows:
         parent = row.get("parent_public_accession", "")
@@ -111,6 +114,8 @@ def validate_registry(registry: Path, release_root: Path) -> dict[str, object]:
         "records": len(rows),
         "errors": len(errors),
         "warnings": len(warnings),
+        "planned_files": planned_files,
+        "phase": phase,
         "error_details": errors[:50],
         "warning_details": warnings[:50],
     }
@@ -120,12 +125,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate BGS accession registry and release outputs.")
     parser.add_argument("--registry", required=True, type=Path)
     parser.add_argument("--release-root", required=True, type=Path)
+    parser.add_argument("--phase", choices=["dry-run", "applied"], default="applied")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    report = validate_registry(args.registry.resolve(), args.release_root.resolve())
+    report = validate_registry(args.registry.resolve(), args.release_root.resolve(), args.phase)
     print(json.dumps(report, indent=2, sort_keys=True))
     if report["errors"]:
         print(f"Validation failed with {report['errors']} errors", file=sys.stderr)

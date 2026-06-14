@@ -4,6 +4,13 @@ The permanent registry lives at `data/accession_registry.tsv` when approved for
 commit. Phase 1 writes a preview to
 `artifacts/accession_migration/accession_registry_preview.tsv`.
 
+Phase 1 also writes two derived views:
+
+- `internal_accession_registry.tsv`: full registry columns for migration and
+  validation, including relative paths and checksums.
+- `public_accession_mapping.tsv`: public provenance mapping without `source_path`,
+  `public_path`, `source_sha256`, or `public_sha256`.
+
 ## Registry Columns
 
 Required columns:
