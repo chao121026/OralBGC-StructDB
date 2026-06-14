@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block content %}<section class="page-shell prose"><h1>About / Citation</h1>
 <p><strong>PHRC_BGCStructDB</strong> is a focused oral microbiome MAG-resolved BGC-protein resource that links BGC context to predicted structures, AF3 QC metrics, compactness descriptors, and Foldseek/PDB structural annotations.</p>
-<h2>Version and update history</h2><p>Database version: PHRC_BGCStructDB_v1. Schema version: public-sqlite-v2. Dataset status: PHRC initial public release. Future HROM integration is planned with the same dataset-aware schema.</p>
+<h2>Version and update history</h2><p>Database version: BGS accession release v1.0. Schema version: public-sqlite-v3. Dataset status: PHRC initial public release with stable BGS accessions. Future HROM integration is planned with the same accession-aware schema.</p>
+<h2>Identifiers</h2><p>Each MAG, BGC, primary c0.3 GCF, protein, and predicted structure is assigned a stable BGS accession independent of pipeline-specific identifiers. Original PHRC identifiers are preserved as searchable provenance metadata and in the public accession mapping table.</p>
 <h2>Scientific workflow</h2><p>MAG → antiSMASH BGC → primary c0.3 BiG-SCAPE GCF → BGC protein → predicted structure → AF3 QC and Foldseek/PDB annotation where available.</p>
 <h2>Data availability</h2><p>Public tables, structures, Foldseek outputs, antiSMASH archives, BiG-SCAPE archives, documentation, and checksums are available through the Downloads page.</p>
 <h2>Limitations</h2><p>BGC prediction is computational, structures are predictions, and Foldseek similarity does not prove biological function.</p>

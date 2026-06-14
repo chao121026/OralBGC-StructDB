@@ -1,13 +1,15 @@
 # PHRC_BGCStructDB Web
 
-Public FastAPI/Jinja website for PHRC_BGCStructDB_v1. The app serves a no-login scientific database for oral microbiome MAG-associated BGC proteins, predicted structures, AF3 QC metrics where available, and Foldseek/PDB structural annotations where available.
+Public FastAPI/Jinja website for the PHRC_BGCStructDB BGS accession release. The app serves a no-login scientific database for oral microbiome MAG-associated BGC proteins, predicted structures, AF3 QC metrics where available, and Foldseek/PDB structural annotations where available.
+
+Each MAG, BGC, primary c0.3 GCF, protein, and predicted structure is assigned a stable BGS accession independent of pipeline-specific identifiers. Original PHRC identifiers are preserved as searchable provenance metadata and remain usable through legacy redirects.
 
 ## Configuration
 
 Copy `.env.example` and set deployment-specific paths:
 
 ```bash
-PACKAGE_ROOT=../PHRC_BGCStructDB_v1
+PHRC_BGCSTRUCTDB_DATA_ROOT=../PHRC_BGCStructDB_BGS_v1
 DATABASE_PATH=app/data/phrc_bgcstructdb.sqlite
 PUBLIC_BASE_URL=http://127.0.0.1:8000
 ENVIRONMENT=development
@@ -20,7 +22,7 @@ The production application does not require `SECRET_KEY` for the current read-on
 
 ```bash
 python -m pip install -r requirements.txt
-python scripts/ingest_package_to_sqlite.py --package-root "$PACKAGE_ROOT" --db "$DATABASE_PATH"
+python scripts/ingest_package_to_sqlite.py --package-root "$PHRC_BGCSTRUCTDB_DATA_ROOT" --db "$DATABASE_PATH"
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -28,7 +30,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 - `/` Home
 - `/proteins` Protein browse
-- `/proteins/{public_protein_id}` Protein/structure detail
+- `/proteins/{BGS-PRT-accession}` Protein detail
+- `/structures/{BGS-STR-accession}` Structure detail
 - `/downloads` Public downloads
 
 ## Optional screenshot capture
@@ -49,4 +52,4 @@ The ingestion allowlist excludes internal candidate-ranking and IP-development f
 
 ## Deployment
 
-Run uvicorn behind Nginx using the sample files in `deployment/`. Keep the SQLite database backed up before each ingestion update. For future HROM data, rebuild with the same schema and `dataset` public identifiers.
+Run uvicorn behind Nginx using the sample files in `deployment/`. Keep the SQLite database backed up before each ingestion update. For future HROM data, rebuild with the same schema and stable BGS-style public accessions while retaining source identifiers in provenance columns.

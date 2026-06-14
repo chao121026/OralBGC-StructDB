@@ -1,9 +1,22 @@
-{% extends "base.html" %}{% import "components/macros.html" as ui %}{% block content %}
-<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/bgcs">BGCs</a> / <span class="mono">{{ record.public_bgc_id|short_id }}</span></p><h1>BGC Detail</h1><div class="identifier-block compact-identifiers">{{ ui.identifier_row('Public BGC ID', record.public_bgc_id) }}{{ ui.identifier_row('Region', record.region_basename) }}</div><div class="record-meta"><span class="badge-token">PHRC</span><a class="badge-token" href="/mags/{{ record.public_mag_id }}">MAG</a>{% if record.public_gcf_id %}<a class="badge-token" href="/gcfs/{{ record.public_gcf_id }}">Primary c0.3 GCF</a>{% endif %}<span>{{ record.bigscape_class_primary or 'Unassigned class' }}</span></div></div></section>
+{% extends "base.html" %}{% import "components/macros.html" as ui %}{% block head %}<link rel="canonical" href="/bgcs/{{ record.bgc_accession or record.public_bgc_id }}">{% endblock %}{% block content %}
+<section class="record-hero"><div class="page-shell"><p class="breadcrumb-line"><a href="/bgcs">BGCs</a> / <span class="mono">{{ record.public_bgc_id|short_id }}</span></p><h1>{{ record.bgc_accession or record.public_bgc_id }}</h1><div class="identifier-block compact-identifiers">{{ ui.identifier_row('BGS BGC accession', record.bgc_accession or record.public_bgc_id) }}{{ ui.identifier_row('Region', record.region_basename) }}{{ ui.identifier_row('Original BGC ID', record.original_bgc_id or record.bgc_id) }}</div><div class="record-meta"><span class="badge-token">PHRC</span><a class="badge-token" href="/mags/{{ record.public_mag_id }}">{{ record.public_mag_id }}</a>{% if record.public_gcf_id %}<a class="badge-token" href="/gcfs/{{ record.public_gcf_id }}">{{ record.public_gcf_id }}</a>{% endif %}<span>{{ record.bigscape_class_primary or 'Unassigned class' }}</span></div></div></section>
 <section class="page-shell section">
   <h2>Summary Metrics</h2>
   <div class="stats-grid refined"><div class="stat-card"><span>Proteins</span><strong>{{ record.number_BGC_proteins }}</strong></div><div class="stat-card"><span>Predicted structures</span><strong>{{ coverage.structures or 0 }}</strong></div><div class="stat-card"><span>AF3 QC</span><strong>{{ coverage.af3_qc or 0 }}</strong></div><div class="stat-card"><span>Foldseek/PDB</span><strong>{{ coverage.foldseek or 0 }}</strong></div></div>
   <p class="note">Individual GBK extraction is not yet available through record routes. Download the complete antiSMASH region archive from Downloads.</p>
+</section>
+<section class="page-shell section">
+  <details class="provenance-details">
+    <summary>Source and provenance</summary>
+    <dl class="record-list">
+      <dt>Source collection</dt><dd>{{ record.source_collection or record.dataset or 'PHRC' }}</dd>
+      <dt>Original identifier</dt><dd class="mono identifier-inline">{{ record.original_bgc_id or record.bgc_id }}</dd>
+      <dt>Original filename</dt><dd class="mono identifier-inline">{{ record.region_basename }}</dd>
+      <dt>Original MAG ID</dt><dd class="mono identifier-inline">{{ record.original_mag_id or record.genome_id }}</dd>
+      <dt>Contig</dt><dd class="mono">{{ record.contig_id }}</dd>
+      <dt>Region</dt><dd>{{ record.region_number }}</dd>
+    </dl>
+  </details>
 </section>
 <section class="page-shell section">
   <h2>Gene Cluster Track</h2>

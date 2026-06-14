@@ -1,8 +1,9 @@
 # Accession Migration Runbook
 
 This migration is phased. Phase 1 is inspection and dry-run planning only.
-Filesystem apply, TSV rewrites, archive regeneration, database rebuilds, and URL
-changes require a reviewed Phase 1 report.
+Phase 2 creates the accession-based release tree. Phase 3 rebuilds the website
+SQLite database and routes so stable BGS accessions are canonical public
+identifiers while original PHRC identifiers remain searchable provenance.
 
 ## Phase 1 Dry Run
 
@@ -10,8 +11,8 @@ Run from the repository root:
 
 ```bash
 python scripts/migrate_public_accessions.py \
-  --source-root /Users/jz7982/Documents/PHRC_BGCStructDB_v1 \
-  --output-root /Users/jz7982/Documents/PHRC_BGCStructDB_web \
+  --source-root /path/to/PHRC_BGCStructDB_v1 \
+  --output-root /path/to/planning_artifacts \
   --registry data/accession_registry.tsv \
   --release-version v1.0 \
   --dry-run
@@ -50,7 +51,7 @@ Validate the preview or approved registry:
 ```bash
 python scripts/validate_accession_migration.py \
   --registry artifacts/accession_migration/accession_registry_preview.tsv \
-  --release-root /Users/jz7982/Documents/PHRC_BGCStructDB_web \
+  --release-root /path/to/planning_artifacts \
   --phase dry-run
 ```
 
@@ -82,9 +83,9 @@ present. It does not delete the original data tree. Planned file operations copy
 source files to accession-based paths and refuse to overwrite existing files with
 different content.
 
-## Current Phase 1 Result
+## Current Validated Result
 
-The local package inspected at `/Users/jz7982/Documents/PHRC_BGCStructDB_v1`
+The reviewed PHRC source package
 produced:
 
 - MAG: 583
@@ -101,11 +102,25 @@ produced:
 - Approved GBK exclusions: 12
 - Unresolved GBKs: 0
 
-BGC GenBank files are present as `antismash/region_gbk.tar.gz` in the local
-package, not as an expanded `antismash/region_gbk/*.gbk` directory. Phase 2
-should stream each safe archive member, match by explicit parent MAG directory
-plus original GBK filename, and write accession-named members such as
-`BGS-BGC-000001.gbk` into a new deterministic archive.
+BGC GenBank files in the accession release are published as
+`antismash/BGS_BGC_GBK_v1.0.tar.gz` with 1,913 accession-named members. The 12
+reviewed extra source GBKs remain excluded from public archives and documented
+in provenance.
+
+## Phase 3 Website Switch
+
+The public app should run with:
+
+```bash
+PHRC_BGCSTRUCTDB_DATA_ROOT=/path/to/PHRC_BGCStructDB_BGS_v1
+python scripts/ingest_package_to_sqlite.py \
+  --package-root "$PHRC_BGCSTRUCTDB_DATA_ROOT" \
+  --db app/data/phrc_bgcstructdb.sqlite
+```
+
+Canonical URLs are `/mags/BGS-MAG-*`, `/bgcs/BGS-BGC-*`,
+`/gcfs/BGS-GCF-C03-*`, `/proteins/BGS-PRT-*`, and `/structures/BGS-STR-*`.
+Exact legacy PHRC identifiers redirect with HTTP 308 to the matching BGS URL.
 
 ## Phase 2 GBK Plan
 

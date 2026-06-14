@@ -11,7 +11,9 @@ Local review URL: `http://127.0.0.1:8000`
 
 ## Data Used
 
-The checkpoint uses the ingested SQLite database built from `${PACKAGE_ROOT}`. Live stats are 583 MAGs, 1,913 BGCs, 179 primary c0.3 GCFs, 22,626 BGC proteins, 22,622 predicted structures available, 10,972 proteins with AF3 QC, and 10,972 proteins with Foldseek/PDB annotation. The protein detail page uses a real approved CIF route when a structure is available.
+The checkpoint uses the ingested SQLite database built from `${PHRC_BGCSTRUCTDB_DATA_ROOT}`. Live stats are 583 MAGs, 1,913 BGCs, 179 primary c0.3 GCFs, 22,626 BGC proteins, 22,622 predicted structures available, 10,972 proteins with AF3 QC, and 10,972 proteins with Foldseek/PDB annotation. The protein detail page uses a real approved CIF route when a structure is available.
+
+All public entity labels and canonical URLs use stable BGS accessions. Original PHRC identifiers remain in provenance sections, search indexes, and the public accession mapping download.
 
 ## Color Tokens
 
@@ -54,7 +56,7 @@ The interface is a restrained scientific resource rather than an admin dashboard
 
 ## Downloads Information Architecture
 
-`PHRC_integrated_BGC_protein_structure_summary.tsv` is the recommended primary metadata table because it joins the public BGC, protein, AF3 structure, QC, and Foldseek/PDB metadata needed for most downstream analyses. Component tables remain public, but they are grouped under Advanced analysis and reproducibility files so they do not compete with the integrated table as the default starting point.
+`PHRC_integrated_BGC_protein_structure_summary.tsv` is the recommended primary metadata table because it joins accession-based public BGC, protein, AF3 structure, QC, and Foldseek/PDB metadata needed for most downstream analyses. `BGS_public_accession_mapping.tsv`, the accession FASTA, accession-named GBK archive, structure archives, and checksums are also recommended starting points. Component tables remain public, but they are grouped under Advanced analysis and reproducibility files so they do not compete with the integrated table as the default starting point.
 
 The Downloads page also documents record-level and filtered exports. Browse pages expose filtered MAG, BGC, GCF, protein, and structure views; detail pages provide record-level sequence or structure downloads where those routes exist; API JSON remains available through the documented FastAPI endpoints.
 

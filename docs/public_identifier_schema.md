@@ -1,8 +1,18 @@
 # Public Identifier Schema
 
-The permanent registry lives at `data/accession_registry.tsv` when approved for
-commit. Phase 1 writes a preview to
-`artifacts/accession_migration/accession_registry_preview.tsv`.
+The permanent registry lives at `data/accession_registry.tsv`. Public website
+and API routes use the approved BGS accessions as canonical identifiers:
+
+```text
+BGS-MAG-000001
+BGS-BGC-000001
+BGS-GCF-C03-0001
+BGS-PRT-000001
+BGS-STR-000001
+```
+
+Original PHRC pipeline identifiers remain stored, searchable, and displayed as
+provenance. Legacy URLs redirect to canonical BGS accession URLs.
 
 Phase 1 also writes two derived views:
 
@@ -65,6 +75,6 @@ Phase 1 plans these public filenames:
 - Structure CIF: `structures/BGS-STR-000001.cif`
 - GCF bundle: `bigscape/gcfs/BGS-GCF-C03-0001`
 
-Phase 3 should rewrite TSVs, archives, manifests, and website/database records to
-use these as the public-facing identifiers while preserving original IDs in
+Phase 3 rebuilds the public SQLite database from the accession release tree and
+uses these as the public-facing identifiers while preserving original IDs in
 provenance columns.
