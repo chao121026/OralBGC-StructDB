@@ -3,6 +3,7 @@ from sqlalchemy import text
 from fastapi import HTTPException
 from app.config import get_settings
 from app.database import db_connect, table_exists
+from app.services.public_resources import direct_url
 from app.security import reject_unsafe_identifier, safe_under
 
 RECOMMENDED = "recommended"
@@ -147,6 +148,43 @@ ACCESSION_PRESENTATION = {
         "usage_note": "Best for: all-cutoff GCF assignment reproducibility",
         "badges": ["Recommended", "GCF assignments"],
     },
+    "bgc_to_gcf_c0.3.tsv": {
+        "advanced_group": "BiG-SCAPE",
+        "record_count": 1744,
+        "usage_note": "Best for: primary c0.3 BGS BGC-to-GCF assignments",
+        "badges": ["BiG-SCAPE", "Primary c0.3"],
+    },
+    "gcf_summary_c0.3.tsv": {
+        "advanced_group": "BiG-SCAPE",
+        "record_count": 179,
+        "usage_note": "Best for: primary c0.3 GCF summaries",
+        "badges": ["BiG-SCAPE", "Primary c0.3"],
+    },
+    "bigscape_class_summary_c0.3.tsv": {
+        "advanced_group": "BiG-SCAPE",
+        "usage_note": "Best for: class-level GCF and BGC counts",
+        "badges": ["BiG-SCAPE", "Class summary"],
+    },
+    "bigscape_public_tables.tar.gz": {
+        "advanced_group": "BiG-SCAPE",
+        "usage_note": "Best for: downloading all curated public BiG-SCAPE tables",
+        "badges": ["BiG-SCAPE", "Tables"],
+    },
+    "bigscape_primary_c0.3_networks.tar.gz": {
+        "advanced_group": "BiG-SCAPE",
+        "usage_note": "Best for: primary c0.3 mapped network edge lists",
+        "badges": ["BiG-SCAPE", "Networks"],
+    },
+    "bigscape_alternative_cutoff_networks.tar.gz": {
+        "advanced_group": "BiG-SCAPE",
+        "usage_note": "Best for: alternative-cutoff mapped network edge lists",
+        "badges": ["BiG-SCAPE", "Networks"],
+    },
+    "network_file_manifest.tsv": {
+        "advanced_group": "BiG-SCAPE",
+        "usage_note": "Best for: network parser validation metadata",
+        "badges": ["BiG-SCAPE", "Manifest"],
+    },
     "BGS_BGC_GBK_v1.0.tar.gz": {
         "audience_level": RECOMMENDED,
         "recommended_rank": 6,
@@ -202,7 +240,7 @@ def list_downloads():
             return []
         has_sha = conn.execute(text("select 1 from pragma_table_info('download_manifest') where name='sha256'")).first()
         sha_expr = "sha256" if has_sha else "'' as sha256"
-        rows = [dict(r._mapping) for r in conn.execute(text(f"select file_key, filename, description, category, size_bytes, compression, md5, {sha_expr}, version, modified_date from download_manifest where public_safe=1 order by category, filename"))]
+        rows = [dict(r._mapping) for r in conn.execute(text(f"select file_key, filename, relative_path, description, category, size_bytes, compression, md5, {sha_expr}, version, modified_date from download_manifest where public_safe=1 order by category, filename"))]
     return sorted((_with_presentation(row) for row in rows), key=_download_sort_key)
 
 
@@ -251,7 +289,8 @@ def _with_presentation(row):
         "availability": availability,
         "visible": meta.get("visible", True),
     }
-    item["download_url"] = None if availability != "available" else f"/downloads/file/{row['file_key']}"
+    item["download_url"] = None if availability != "available" else direct_url(row["relative_path"])
+    item.pop("relative_path", None)
     return item
 
 

@@ -5,3 +5,10 @@ __pycache__/
 app/data/*.sqlite
 app/data/*.sqlite-*
 artifacts/screenshots/
+site/
+
+# Local database backups
+app/data/*.sqlite.pre_*
+app/data/*.sqlite-wal
+app/data/*.sqlite-shm
+app/data/*.sqlite-journal

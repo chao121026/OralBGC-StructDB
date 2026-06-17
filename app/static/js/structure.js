@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    const res = await fetch(el.dataset.cif);
+    const res = await fetch(el.dataset.cif, { mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error('CIF unavailable');
     const cif = await res.text();
 

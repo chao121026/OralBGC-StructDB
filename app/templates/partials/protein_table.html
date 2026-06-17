@@ -2,12 +2,12 @@
   <table class="data-table mobile-cards">
     <caption>{{ data.total }} proteins match the current filters.</caption>
     <thead>
-      <tr><th>Public protein ID</th><th>Product</th><th>BGC</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek/PDB</th><th>Mean pLDDT</th><th>Match category</th><th>Detail</th></tr>
+      <tr><th>BGS protein accession</th><th>Product</th><th>BGC</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek/PDB</th><th>Mean pLDDT</th><th>Match category</th><th>Detail</th></tr>
     </thead>
     <tbody>
       {% for p in data['items'] %}
       <tr>
-        <td data-label="Public protein ID" class="identifier-cell"><a class="mono" href="/proteins/{{ p.public_protein_id }}" title="{{ p.public_protein_id }}">{{ p.public_protein_id|short_id }}</a></td>
+        <td data-label="BGS protein accession" class="identifier-cell"><a class="mono" href="/proteins/{{ p.public_protein_id }}" title="{{ p.public_protein_id }}">{{ p.public_protein_id|short_id }}</a></td>
         <td data-label="Product">{{ p.product or 'Unannotated' }}</td>
         <td data-label="BGC" class="mono small-cell bgc-cell">
           {% if p.public_bgc_id %}

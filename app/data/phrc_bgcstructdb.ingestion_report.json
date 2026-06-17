@@ -2,53 +2,52 @@
   "tables": {
     "mag_summary": {
       "rows": 583,
-      "columns": 8
+      "columns": 23
     },
     "bgc_summary": {
       "rows": 1913,
-      "columns": 16
+      "columns": 29
     },
     "bgc_protein_summary": {
       "rows": 22626,
-      "columns": 36
+      "columns": 48
     },
     "bigscape_gcf_summary": {
       "rows": 179,
-      "columns": 8
+      "columns": 23
     },
     "bigscape_bgc_to_gcf": {
       "rows": 8731,
-      "columns": 7
+      "columns": 23
     },
     "af3_model_summary": {
       "rows": 10972,
-      "columns": 22
+      "columns": 34
     },
     "foldseek_besthit_all": {
       "rows": 10972,
-      "columns": 23
+      "columns": 35
     },
     "foldseek_af3qc_merged_all": {
       "rows": 10972,
-      "columns": 27
+      "columns": 39
     },
     "integrated_summary": {
       "rows": 22626,
-      "columns": 96
+      "columns": 107
     },
     "column_dictionary": {
       "rows": 111,
-      "columns": 3
+      "columns": 19
     }
   },
-  "excluded_sensitive_files": [
-    "PHRC_integrated_BGC_protein_structure_summary.with_internal_priority_columns.tsv"
-  ],
+  "excluded_sensitive_files": [],
   "missing_identifiers": {},
   "missing_structure_files": 0,
   "structure_file_map_rows": 22622,
   "structure_ids_missing_from_proteins": 0,
-  "download_manifest_rows": 27,
+  "download_manifest_rows": 19,
+  "bgc_gbk_map_rows": 1913,
   "coverage_by_length_bucket": [
     {
       "length_bucket": "short",

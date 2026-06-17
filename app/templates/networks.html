@@ -1,8 +1,146 @@
-{% extends "base.html" %}{% block content %}
+{% extends "base.html" %}{% block title %}BiG-SCAPE gene cluster families · {{ brand.public_name }}{% endblock %}{% block content %}
 <section class="page-shell section">
-  <div class="page-heading"><div><p class="eyebrow dark">Networks</p><h1>BiG-SCAPE Networks</h1><p>Network archives are exposed through the strict public download manifest. Direct Cytoscape.js rendering is deferred until individual `.network` files are parsed, size-screened, and registered in an allowlist.</p></div></div>
-  <div class="status-note">Real archive inspection found `.network` files inside `networks.tar.gz`; `cytoscape_files.tar.gz` is currently empty. No example networks are fabricated.</div>
-  <div class="download-list">{% for item in network_files %}<div class="download-row"><div><strong>{{ item.filename }}</strong><p>{{ item.usage_note if item.availability != 'available' else item.description }}</p><code>{{ item.md5 or 'md5 unavailable' }}</code></div><div class="download-meta"><span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span>{% if item.download_url %}<a class="btn btn-sm btn-primary" href="{{ item.download_url }}">Download</a>{% else %}<span class="muted">Unavailable in this release</span>{% endif %}</div></div>{% endfor %}</div>
-  <div class="network-shell" id="network-preview"><p>Future bounded viewer controls: file selector, class/GCF filters, node search, zoom, reset, fit, and node metadata panel.</p></div>
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow dark">Networks</p>
+      <h1>BiG-SCAPE gene cluster families</h1>
+      <p>BiG-SCAPE analysis grouped {{ '{:,}'.format(bgc_count) }} oral microbiome biosynthetic gene clusters into {{ '{:,}'.format(primary_gcf_count) }} primary gene cluster families at the c{{ primary_cutoff }} cutoff. Browse gene cluster families by biosynthetic class, compare their distribution across MAGs, and download the underlying assignments and network files for downstream analysis.</p>
+    </div>
+  </div>
+  <div class="stats-grid refined">
+    <div class="stat-card"><span>Primary c0.3 GCFs</span><strong>{{ '{:,}'.format(primary_gcf_count) }}</strong></div>
+    <div class="stat-card"><span>BGCs assigned</span><strong>{{ '{:,}'.format(assigned_bgc_count) }}</strong></div>
+    <div class="stat-card"><span>Total BGCs</span><strong>{{ '{:,}'.format(bgc_count) }}</strong></div>
+    <div class="stat-card"><span>MAGs represented</span><strong>{{ '{:,}'.format(assigned_mag_count) }}</strong></div>
+    <div class="stat-card"><span>BiG-SCAPE classes</span><strong>{{ '{:,}'.format(class_count) }}</strong></div>
+    <div class="stat-card"><span>Largest GCF size</span><strong>{{ '{:,}'.format(largest_gcf_size or 0) }}</strong></div>
+    <div class="stat-card"><span>Singleton GCFs</span><strong>{{ '{:,}'.format(singleton_gcf_count or 0) }}</strong></div>
+  </div>
 </section>
+
+<section class="page-shell section">
+  <div class="page-heading">
+    <div>
+      <h2>Interactive network viewer</h2>
+      <p class="muted">Explore validated BiG-SCAPE similarity networks interactively by gene cluster family. Select a node to view BGC metadata and open the corresponding database record.</p>
+    </div>
+  </div>
+  <div id="bigscape-network-viewer" class="bigscape-viewer" data-default-gcf="{{ default_gcf or '' }}" data-selected-gcf="{{ request.query_params.get('gcf', '') }}">
+    <div class="bigscape-viewer-controls" aria-label="BiG-SCAPE network controls">
+      <label>GCF accession
+        <input id="bigscape-gcf-input" class="form-control" type="search" list="bigscape-gcf-options" placeholder="BGS-GCF-C03-0003" autocomplete="off">
+      </label>
+      <datalist id="bigscape-gcf-options">
+        {% for item in top_gcfs %}
+        <option value="{{ item.public_gcf_id }}">{{ item.bigscape_class_primary }} · {{ item.number_BGCs }} BGCs</option>
+        {% endfor %}
+      </datalist>
+      <label>Network file
+        <select id="bigscape-network-select" class="form-select"></select>
+      </label>
+      <label>Search node
+        <input id="bigscape-node-search" class="form-control" type="search" placeholder="BGS-BGC-000001 or original ID" autocomplete="off">
+      </label>
+      <div class="bigscape-button-row">
+        <button type="button" class="btn btn-sm btn-primary" data-action="load-gcf">Load GCF</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="load-network">Load network</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="fit">Fit</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="reset">Reset layout</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="zoom-in">Zoom in</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="zoom-out">Zoom out</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="fullscreen">Fullscreen</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="clear">Clear</button>
+        <a id="bigscape-download-json" class="btn btn-sm btn-outline-secondary" href="#" hidden>Download current JSON</a>
+      </div>
+    </div>
+    <div id="bigscape-viewer-status" class="status-note" role="status" aria-live="polite">Loading network metadata...</div>
+    <div class="bigscape-viewer-grid">
+      <div>
+        <div id="bigscape-cytoscape" class="bigscape-cytoscape" role="img" aria-label="Interactive BiG-SCAPE network graph"></div>
+        <div class="bigscape-legend" aria-label="Network legend">
+          <span><i class="legend-node"></i>Node: public BGS BGC accession</span>
+          <span><i class="legend-edge"></i>Edge: mapped BiG-SCAPE distance record</span>
+          <span><i class="legend-selected"></i>Outline: selected node</span>
+        </div>
+      </div>
+      <aside class="bigscape-metadata-panel" aria-label="Selected BGC metadata">
+        <h3>Selected BGC</h3>
+        <dl id="bigscape-node-details" class="compact-definition-list">
+          <dt>Status</dt><dd>Select a node to inspect metadata.</dd>
+        </dl>
+        <a id="bigscape-open-bgc" class="btn btn-sm btn-primary" href="#" hidden>Open BGC record</a>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="page-shell section two-col">
+  <div>
+    <h2>Class distribution</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>BiG-SCAPE class</th><th>GCFs</th><th>BGCs</th></tr></thead>
+        <tbody>{% for item in classes %}
+          <tr><td><a href="/gcfs?bgc_class={{ item.bigscape_class }}">{{ item.bigscape_class }}</a></td><td>{{ item.gcf_count }}</td><td>{{ item.bgc_count }}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+    </div>
+  </div>
+  <div>
+    <h2>Representative largest GCFs</h2>
+    <ul class="related-list">{% for item in top_gcfs[:5] %}
+      <li><a class="mono" href="/gcfs/{{ item.public_gcf_id }}">{{ item.public_gcf_id }}</a><span>{{ item.bigscape_class_primary }} · {{ item.number_BGCs }} BGCs · {{ item.number_MAGs }} MAGs</span></li>
+    {% endfor %}</ul>
+  </div>
+</section>
+
+<section class="page-shell section">
+  <div class="page-heading">
+    <div>
+      <h2>GCF browser</h2>
+      <p class="muted">Largest primary c0.3 families are shown here. Use the full GCF browse page for search, filters, sorting, and pagination.</p>
+    </div>
+    <a class="btn btn-primary" href="/gcfs">Open full GCF browse</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table mobile-cards">
+      <thead><tr><th>GCF accession</th><th>Class</th><th>BGCs</th><th>MAGs</th><th>Proteins</th><th>Predicted structures</th></tr></thead>
+      <tbody>{% for item in top_gcfs %}
+        <tr>
+          <td data-label="GCF accession"><a class="mono" href="/gcfs/{{ item.public_gcf_id }}">{{ item.public_gcf_id }}</a></td>
+          <td data-label="Class">{{ item.bigscape_class_primary }}</td>
+          <td data-label="BGCs">{{ item.number_BGCs }}</td>
+          <td data-label="MAGs">{{ item.number_MAGs }}</td>
+          <td data-label="Proteins">{{ item.number_BGC_proteins }}</td>
+          <td data-label="Predicted structures">{{ item.predicted_structures_available }}</td>
+        </tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+</section>
+
+<section class="page-shell section two-col">
+  <div>
+    <h2>Downloads</h2>
+    <p class="muted">Validated network archive files and public BGS-mapped assignment tables are available below.</p>
+    <div class="download-list">{% for item in downloads %}
+      <div class="download-row">
+        <div><strong>{{ item.filename }}</strong><p>{{ item.display_description }}</p><code>{{ item.sha256 or 'sha256 unavailable' }}</code></div>
+        <div class="download-meta"><span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes</span><a class="btn btn-sm btn-primary" href="{{ item.download_url }}">Download</a></div>
+      </div>
+    {% else %}
+      <p class="status-note">Curated BiG-SCAPE downloads have not been registered in this environment.</p>
+    {% endfor %}</div>
+  </div>
+  <div class="overview-panel">
+    <h2>Interactive limits</h2>
+    <p>Networks above the configured viewer limits remain listed and downloadable, but are not loaded into Cytoscape.js. GCF-specific subnetworks are preferred for bounded exploration.</p>
+    <h3>Primary cutoff</h3>
+    <p>Stable BGS GCF accessions on this site use the c{{ primary_cutoff }} primary assignment.</p>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', path='vendor/cytoscape/3.29.2/cytoscape.min.js') }}"></script>
+<script src="{{ url_for('static', path='js/bigscape_network.js') }}"></script>
 {% endblock %}

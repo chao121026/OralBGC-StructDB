@@ -3,7 +3,10 @@
 <section class="page-shell section">
   <h2>Summary Metrics</h2>
   <div class="stats-grid refined"><div class="stat-card"><span>Proteins</span><strong>{{ record.number_BGC_proteins }}</strong></div><div class="stat-card"><span>Predicted structures</span><strong>{{ coverage.structures or 0 }}</strong></div><div class="stat-card"><span>AF3 QC</span><strong>{{ coverage.af3_qc or 0 }}</strong></div><div class="stat-card"><span>Foldseek/PDB</span><strong>{{ coverage.foldseek or 0 }}</strong></div></div>
-  <p class="note">Individual GBK extraction is not yet available through record routes. Download the complete antiSMASH region archive from Downloads.</p>
+  {% if bgc_archive_resource %}
+  <p><a class="btn btn-sm btn-primary" href="{{ bgc_archive_resource.download_url }}">Download BGC archive</a></p>
+  {% endif %}
+  <p class="note">Individual GenBank downloads are not available in this release. The complete BGC archive is available from the Downloads page.</p>
 </section>
 <section class="page-shell section">
   <details class="provenance-details">

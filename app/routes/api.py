@@ -3,6 +3,9 @@ from sqlalchemy import text
 from app.queries import paged_table, get_one_by_public_id
 from app.services.stats import stats_payload, chart_payload
 from app.services.downloads import list_downloads
+from app.services.bigscape import bigscape_summary
+from app.services.bigscape_networks import gcf_network, list_networks, network_json
+from app.config import get_settings
 from app.database import db_connect, table_exists
 from app.services.entities import (
     grouped_search,
@@ -18,7 +21,8 @@ from app.services.entities import (
 router=APIRouter(prefix='/api', tags=['api'])
 
 @router.get('/health', summary='Application health')
-def health(): return {"status":"ok", "service":"PHRC_BGCStructDB"}
+def health():
+    return {"status": "ok", "database": "available", "deployment_mode": get_settings().deployment_mode}
 
 @router.get('/version')
 def version():
@@ -33,6 +37,8 @@ def version():
         "ingestion_date": metadata.get("ingested_at"),
         "loaded_datasets": [metadata.get("dataset", "PHRC")],
         "release_root_config": "PHRC_BGCSTRUCTDB_DATA_ROOT",
+        "public_name": get_settings().public_name,
+        "institution": get_settings().institution,
         "public_base": "read-only public API",
     }
 
@@ -41,6 +47,27 @@ def stats(): return stats_payload()
 
 @router.get('/charts')
 def charts(): return chart_payload()
+
+@router.get('/bigscape/summary')
+def bigscape_summary_api():
+    payload = bigscape_summary()
+    return {key: value for key, value in payload.items() if key != "downloads"}
+
+@router.get('/bigscape/classes')
+def bigscape_classes_api():
+    return {"items": bigscape_summary()["classes"]}
+
+@router.get('/bigscape/networks')
+def bigscape_networks_api():
+    return list_networks()
+
+@router.get('/bigscape/networks/{network_id}')
+def bigscape_network_api(network_id: str):
+    return network_json(network_id)
+
+@router.get('/bigscape/gcfs/{gcf_accession}/network')
+def bigscape_gcf_network_api(gcf_accession: str):
+    return gcf_network(gcf_accession)
 
 @router.get('/proteins')
 def proteins(page:int=1, page_size:int=25, sort_by:str='public_protein_id', sort_dir:str='asc', q:str|None=None, length_bucket:str|None=None, compactness_class:str|None=None, pdb_structural_match_category:str|None=None):

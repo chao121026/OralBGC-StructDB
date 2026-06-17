@@ -1,7 +1,8 @@
-{% extends "base.html" %}{% block content %}<section class="page-shell prose"><h1>Contact</h1>
-<p>Maintainer: placeholder. Institutional email: <a href="mailto:contact@example.edu">contact@example.edu</a>.</p>
-<h2>Report data errors</h2><p>Include database version, public record ID, expected value, observed value, and a short explanation.</p>
+{% extends "base.html" %}{% block title %}Contact · {{ brand.public_name }}{% endblock %}{% block content %}<section class="page-shell prose"><h1>Contact</h1>
+<h2>Database correspondence</h2><p>For questions about {{ brand.public_name }} records, data corrections, downloads, API access, technical problems, collaboration, or manuscript correspondence, contact the database project team using the existing project contact address: <a href="mailto:{{ brand.contact_email }}">{{ brand.contact_email }}</a>.</p>
+<h2>Report data errors</h2><p>Include database version, public BGS accession, expected value, observed value, and a short explanation.</p>
 <h2>Broken links and software issues</h2><p>Include the URL, browser, and time observed. The public site has no login requirement and no unauthenticated email relay endpoint.</p>
-<h2>Citation requests</h2><p>Use the About page citation placeholder until formal publication details are available.</p>
+<h2>Institutional information</h2><p><strong>Public Health Research Center</strong><br>New York University Abu Dhabi<br>Abu Dhabi, United Arab Emirates</p><p><a href="{{ brand.institution_url }}" target="_blank" rel="noopener noreferrer">Visit the Public Health Research Center</a></p><p>Database-support questions should be sent to the database project contact above, not automatically to a center-wide general contact.</p>
+<h2>Citation requests</h2><p>Use the About page citation guidance until formal publication details are available.</p>
 <h2>Privacy</h2><p>No registration, login, password, or institutional VPN is required for the public release.</p>
 </section>{% endblock %}

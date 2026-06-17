@@ -4,6 +4,8 @@ from sqlalchemy import text
 from app.queries import paged_table, get_one_by_public_id
 from app.services.stats import stats_payload, chart_payload, featured_records
 from app.services.downloads import build_download_page_context, list_downloads
+from app.services.bigscape import bigscape_summary
+from app.services.bigscape_networks import default_gcf_accession
 from app.database import db_connect, table_exists
 from app.services.entities import (
     get_bgc_detail,
@@ -35,8 +37,9 @@ def protein_browse(request: Request, page:int=1, page_size:int=25, sort_by:str='
 
 @router.get('/proteins/{public_protein_id:path}')
 def protein_detail(request: Request, public_protein_id: str):
-    protein=get_one_by_public_id('bgc_protein_summary','public_protein_id',public_protein_id)
-    if not protein:
+    try:
+        protein = get_one_protein(public_protein_id)
+    except HTTPException:
         canonical = resolve_legacy_accession("proteins", public_protein_id)
         if canonical:
             return _redirect(request, f"/proteins/{canonical}")
@@ -102,9 +105,7 @@ def search_page(request: Request, q:str|None=None, page_size:int=10):
     return templates.TemplateResponse('search.html', {"request":request,"q":q or "", "results":results, "error":error, "active":"search"})
 @router.get('/networks')
 def networks_page(request: Request):
-    downloads_by_name={item["filename"]: item for item in list_downloads()}
-    network_files=[item for item in downloads_by_name.values() if item["filename"] in {"networks.tar.gz", "cytoscape_files.tar.gz", "gcf_tables.tar.gz"}]
-    return templates.TemplateResponse('networks.html', {"request":request,"active":"networks","network_files":network_files})
+    return templates.TemplateResponse('networks.html', {"request":request,"active":"networks", "default_gcf": default_gcf_accession(), **bigscape_summary()})
 
 @router.get('/mags/{public_mag_id:path}')
 def mag_detail(request: Request, public_mag_id: str):

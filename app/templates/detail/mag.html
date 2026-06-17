@@ -11,6 +11,19 @@
     <div class="stat-card"><span>Foldseek/PDB</span><strong>{{ record.proteins_with_foldseek_annotation }}</strong></div>
   </div>
 </section>
+{% if mag_resource %}
+<section class="page-shell section">
+  <h2>MAG FASTA</h2>
+  <p><a class="btn btn-primary" href="{{ mag_resource.download_url }}">Download MAG FASTA</a></p>
+  <dl class="record-list compact-resource-list">
+    <dt>Filename</dt><dd class="mono identifier-inline">{{ mag_resource.filename }}</dd>
+    <dt>Size</dt><dd>{{ '{:,}'.format(mag_resource.size_bytes or 0) }} bytes</dd>
+    <dt>SHA-256</dt><dd class="mono identifier-inline">{{ mag_resource.sha256 }}</dd>
+    <dt>Release version</dt><dd>{{ mag_resource.release_version }}</dd>
+    <dt>Validation status</dt><dd>{{ mag_resource.validation_status|human_label }}</dd>
+  </dl>
+</section>
+{% endif %}
 <section class="page-shell section two-col">
   <div><h2>Linked BGCs</h2><ul class="related-list">{% for b in bgcs %}<li><a class="mono" href="/bgcs/{{ b.public_bgc_id }}">{{ b.public_bgc_id }}</a><span>{{ b.bigscape_class_primary or 'Unassigned' }} · {{ b.number_BGC_proteins }} proteins</span></li>{% else %}<li>No BGCs found.</li>{% endfor %}</ul><a href="/bgcs?mag={{ record.public_mag_id }}">Open filtered BGC browse</a></div>
   <div><h2>Linked proteins</h2><ul class="related-list">{% for p in proteins %}<li><a class="mono" href="/proteins/{{ p.public_protein_id }}">{{ p.public_protein_id }}</a><span>{{ p.product or 'Unannotated' }}</span></li>{% else %}<li>No proteins found.</li>{% endfor %}</ul><a href="/proteins?q={{ record.mag_id }}">Open filtered protein browse</a></div>

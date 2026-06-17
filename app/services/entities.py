@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.database import db_connect
 from app.queries import public_row
+from app.services.public_resources import first_resource_by_type, resource_for_entity
 
 
 LIST_CONFIG = {
@@ -305,7 +306,11 @@ def get_one_protein(public_protein_id: str):
         row = conn.execute(text("select * from bgc_protein_summary where public_protein_id=:id limit 1"), {"id": public_protein_id}).first()
     if not row:
         raise HTTPException(404, "Protein not found")
-    return public_row(dict(row._mapping))
+    protein = public_row(dict(row._mapping))
+    if protein.get("public_structure_id"):
+        protein["structure_resource"] = resource_for_entity("structures", protein["public_structure_id"])
+    protein["protein_fasta_resource"] = first_resource_by_type("protein_fasta")
+    return protein
 
 
 def get_mag_detail(public_mag_id: str):
@@ -323,7 +328,15 @@ def get_mag_detail(public_mag_id: str):
         gcfs = [public_row(dict(r._mapping)) for r in conn.execute(text("select distinct public_gcf_id, bigscape_gcf_id_full_primary, bigscape_class_primary from bgc_summary where public_mag_id=:id and coalesce(public_gcf_id,'')!='' order by public_gcf_id limit 25"), {"id": public_mag_id})]
         class_dist = [dict(r._mapping) for r in conn.execute(text("select coalesce(bigscape_class_primary,'Unassigned') label, count(*) value from bgc_summary where public_mag_id=:id group by coalesce(bigscape_class_primary,'Unassigned')"), {"id": public_mag_id})]
         length_dist = [dict(r._mapping) for r in conn.execute(text("select length_bucket label, count(*) value from bgc_protein_summary where public_mag_id=:id group by length_bucket"), {"id": public_mag_id})]
-    return {"record": mag, "bgcs": bgcs, "proteins": proteins, "gcfs": gcfs, "class_dist": class_dist, "length_dist": length_dist}
+    return {
+        "record": mag,
+        "bgcs": bgcs,
+        "proteins": proteins,
+        "gcfs": gcfs,
+        "class_dist": class_dist,
+        "length_dist": length_dist,
+        "mag_resource": resource_for_entity("mags", public_mag_id),
+    }
 
 
 def get_bgc_detail(public_bgc_id: str):
@@ -335,7 +348,13 @@ def get_bgc_detail(public_bgc_id: str):
         proteins = [public_row(dict(r._mapping)) for r in conn.execute(text("select public_protein_id, query, product, gene_kind, locus_tag, length_bucket, structure_available, af3_qc_available, foldseek_annotation_available from bgc_protein_summary where public_bgc_id=:id order by cast(cds_index_in_region as integer) limit 200"), {"id": public_bgc_id})]
         genes = [public_row(dict(r._mapping)) for r in conn.execute(text("select public_protein_id, query, locus_tag, product, gene_kind, cds_start, cds_end, cds_strand from integrated_summary where public_bgc_id=:id and coalesce(cds_start,'')!='' and coalesce(cds_end,'')!='' order by cast(cds_start as integer) limit 300"), {"id": public_bgc_id})]
         coverage = conn.execute(text("select sum(case when structure_available='1' then 1 else 0 end) structures, sum(case when af3_qc_available='1' then 1 else 0 end) af3_qc, sum(case when foldseek_annotation_available='1' then 1 else 0 end) foldseek from bgc_protein_summary where public_bgc_id=:id"), {"id": public_bgc_id}).first()
-    return {"record": record, "proteins": proteins, "genes": genes, "coverage": dict(coverage._mapping) if coverage else {}}
+    return {
+        "record": record,
+        "proteins": proteins,
+        "genes": genes,
+        "coverage": dict(coverage._mapping) if coverage else {},
+        "bgc_archive_resource": first_resource_by_type("bgc_bulk_archive"),
+    }
 
 
 def get_gcf_detail(public_gcf_id: str):

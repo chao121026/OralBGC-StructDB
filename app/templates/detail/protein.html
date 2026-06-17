@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% import "components/macros.html" as ui %}
-{% block head %}<link rel="canonical" href="/proteins/{{ protein.protein_accession or protein.public_protein_id }}">{% if protein.structure_available == '1' %}<script src="https://3Dmol.org/build/3Dmol-min.js"></script>{% endif %}{% endblock %}
+{% block head %}<link rel="canonical" href="/proteins/{{ protein.protein_accession or protein.public_protein_id }}">{% if protein.structure_available == '1' %}<script src="{{ url_for('static', path='vendor/3dmol/2.4.2/3Dmol-min.js') }}"></script>{% endif %}{% endblock %}
 {% block content %}
 <section class="record-hero">
   <div class="page-shell">
@@ -21,15 +21,26 @@
 </section>
 <section class="page-shell section detail-grid">
   <div class="viewer-panel">
-    <div class="viewer-toolbar"><strong>Predicted structure viewer</strong>{% if protein.structure_available == '1' %}<a class="btn btn-sm btn-primary" href="/structures/cif/{{ protein.structure_accession or protein.public_protein_id }}">Download CIF</a>{% endif %}</div>
-    {% if protein.structure_available == '1' %}
+    {% set structure_resource = protein.structure_resource %}
+    <div class="viewer-toolbar"><strong>Predicted structure viewer</strong>{% if structure_resource %}<a class="btn btn-sm btn-primary" href="{{ structure_resource.download_url }}">Download CIF</a>{% endif %}</div>
+    {% if protein.structure_available == '1' and structure_resource %}
     <div class="viewer-controls" role="toolbar" aria-label="Structure viewer controls"><button type="button" data-viewer-action="reset">Reset</button><button type="button" data-viewer-action="spin">Spin</button><button type="button" data-viewer-action="cartoon">Cartoon</button><button type="button" data-viewer-action="surface">Surface</button><button type="button" data-viewer-action="plddt">pLDDT</button><button type="button" data-viewer-action="fullscreen">Fullscreen</button></div>
-    <div id="viewer" class="structure-viewer" data-cif="/structures/cif/{{ protein.structure_accession or protein.public_protein_id }}"><div class="structure-loading">Loading predicted structure...</div></div>
+    <div id="viewer" class="structure-viewer" data-cif="{{ structure_resource.browser_fetch_url }}"><div class="structure-loading">Loading predicted structure...</div></div>
+    <dl class="record-list compact-resource-list">
+      <dt>Filename</dt><dd class="mono identifier-inline">{{ structure_resource.filename }}</dd>
+      <dt>Size</dt><dd>{{ '{:,}'.format(structure_resource.size_bytes or 0) }} bytes</dd>
+      <dt>SHA-256</dt><dd class="mono identifier-inline">{{ structure_resource.sha256 }}</dd>
+      <dt>Release version</dt><dd>{{ structure_resource.release_version }}</dd>
+      <dt>Validation status</dt><dd>{{ structure_resource.validation_status|human_label }}</dd>
+    </dl>
       {% if protein.af3_qc_available != '1' and protein.foldseek_annotation_available != '1' %}
       <p class="status-note">Predicted structure available; AF3 QC and Foldseek annotations are not yet available in this release.</p>
       {% else %}
       <p class="note">AF3 structures are predictions. Foldseek structural similarity is not functional proof.</p>
       {% endif %}
+    {% elif protein.structure_available == '1' %}
+    <div class="structure-viewer empty-viewer">Predicted structure metadata is unavailable for this preview.</div>
+    <p class="status-note">The CIF file could not be matched to the validated public resource manifest.</p>
     {% else %}
     <div class="structure-viewer empty-viewer">Predicted structure is not available for this protein in the current public package.</div>
     <p class="status-note">Predicted structure is not available for this protein in the current public package.</p>
@@ -52,6 +63,10 @@
   <div>
     <h2>Related BGC Proteins</h2>
     <ul class="related-list">{% for r in related %}<li><a class="mono" href="/proteins/{{ r.public_protein_id }}" title="{{ r.public_protein_id }}">{{ r.public_protein_id|short_id }}</a><span>{{ r.product }}</span></li>{% else %}<li>No related proteins found.</li>{% endfor %}</ul>
+    {% if protein.protein_fasta_resource %}
+    <p><a class="btn btn-sm btn-outline-secondary" href="{{ protein.protein_fasta_resource.download_url }}">Download complete protein FASTA</a></p>
+    <p class="note">Individual protein FASTA downloads are not available in this release. The complete protein FASTA contains the public BGC protein sequences.</p>
+    {% endif %}
   </div>
 </section>
 <section class="page-shell section">
