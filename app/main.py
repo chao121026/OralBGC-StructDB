@@ -42,8 +42,8 @@ def health():
 
 @app.exception_handler(404)
 def not_found(request: Request, exc):
-    return templates.TemplateResponse('errors/404.html', {"request":request, "detail":getattr(exc,'detail','Not found')}, status_code=404)
+    return templates.TemplateResponse(request, 'errors/404.html', {"request":request, "detail":getattr(exc,'detail','Not found')}, status_code=404)
 
 @app.exception_handler(500)
 def server_error(request: Request, exc):
-    return templates.TemplateResponse('errors/500.html', {"request":request}, status_code=500)
+    return templates.TemplateResponse(request, 'errors/500.html', {"request":request}, status_code=500)
