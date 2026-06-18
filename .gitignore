@@ -20,3 +20,7 @@ app/data/*.sqlite-journal
 # Local audit/build output
 annotation_audit/
 artifacts/
+
+# Railway runtime database artifact
+app/data/phrc_bgcstructdb.sqlite
+!app/data/phrc_bgcstructdb.sqlite.gz
