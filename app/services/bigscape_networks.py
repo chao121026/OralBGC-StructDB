@@ -22,6 +22,9 @@ from app.services.public_resources import resources_by_type
 NETWORK_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 BGC_RE = re.compile(r"^BGS-BGC-\d{6}$")
 GCF_RE = re.compile(r"^BGS-GCF-C03-\d{4}$")
+PUBLIC_EDGE_FILENAME_RE = re.compile(
+    r"^(?P<bigscape_class>.+)_c(?P<cutoff>0\.\d+)_bgs_edges\.tsv$"
+)
 REMOTE_EDGE_MAX_BYTES = 64 * 1024 * 1024
 
 
@@ -49,23 +52,92 @@ class NetworkManifestEntry:
     download_key: str | None
 
 
+@dataclass(frozen=True)
+class PublicNetworkResource:
+    network_id: str
+    cutoff: str
+    bigscape_class: str
+    filename: str
+    size_bytes: int
+    sha256: str
+    validation_status: str
+    browser_fetch_url: str
+    download_url: str
+    renderable: bool
+    render_block_reason: str
+
+
 def list_networks() -> dict:
-    entries = _manifest_entries()
+    local_entries = _manifest_entries()
+    items = [_public_entry(entry) for entry in local_entries]
+
+    local_ids = {entry.network_id for entry in local_entries}
+    items.extend(
+        _public_resource_entry(resource)
+        for resource in _public_network_resources()
+        if resource.network_id not in local_ids
+    )
+    items.sort(
+        key=lambda item: (
+            item["cutoff"] != "0.3",
+            item["cutoff"],
+            item["class"],
+            item["network_id"],
+        )
+    )
+
     return {
         "limits": _limits(),
-        "items": [_public_entry(entry) for entry in entries],
-        "renderable_count": sum(1 for entry in entries if entry.renderable),
-        "download_only_count": sum(1 for entry in entries if not entry.renderable),
+        "items": items,
+        "renderable_count": sum(1 for item in items if item["renderable"]),
+        "download_only_count": sum(1 for item in items if not item["renderable"]),
     }
 
 
 def network_json(network_id: str) -> dict:
-    entry = _entry_by_id(network_id)
-    if not entry.public_safe:
-        raise HTTPException(status_code=404, detail={"message": "Network is not public allowlisted."})
-    if not entry.renderable:
-        raise HTTPException(status_code=413, detail={"message": "Network exceeds the interactive viewer size limit.", "network": _public_entry(entry)})
-    payload = _build_network_payload(entry)
+    if (
+        not NETWORK_ID_RE.fullmatch(network_id)
+        or "/" in network_id
+        or "\\" in network_id
+        or "\x00" in network_id
+    ):
+        raise HTTPException(status_code=400, detail="Invalid network id")
+
+    entry = next(
+        (item for item in _manifest_entries() if item.network_id == network_id),
+        None,
+    )
+    if entry is not None:
+        if not entry.public_safe:
+            raise HTTPException(
+                status_code=404,
+                detail={"message": "Network is not public allowlisted."},
+            )
+        if not entry.renderable:
+            raise HTTPException(
+                status_code=413,
+                detail={
+                    "message": "Network exceeds the interactive viewer size limit.",
+                    "network": _public_entry(entry),
+                },
+            )
+        payload = _build_network_payload(entry)
+        _enforce_response_size(payload)
+        return payload
+
+    resource = _public_network_resource_by_id(network_id)
+    if resource is None:
+        raise HTTPException(status_code=404, detail="Network not found")
+    if not resource.renderable:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "message": "Network exceeds the remote resource size limit.",
+                "network": _public_resource_entry(resource),
+            },
+        )
+
+    payload = _build_remote_network_payload(resource)
     _enforce_response_size(payload)
     return payload
 
@@ -101,9 +173,9 @@ def gcf_network(gcf_accession: str) -> dict:
         )
         if public_resource is not None:
             edge_rows = iter(
-                _read_remote_edges(public_resource["browser_fetch_url"])
+                _read_remote_edges(public_resource.browser_fetch_url)
             )
-            network_id = _public_resource_network_id(public_resource)
+            network_id = public_resource.network_id
             edge_source = "public_resource"
         else:
             edge_rows = iter(())
@@ -274,24 +346,111 @@ def _primary_entry_for_class(bigscape_class: str) -> NetworkManifestEntry | None
     return None
 
 
+@lru_cache(maxsize=1)
+def _public_network_resources() -> tuple[PublicNetworkResource, ...]:
+    resources = []
+    seen_ids = set()
+
+    for row in resources_by_type("bigscape_public"):
+        filename = str(row.get("filename") or "")
+        match = PUBLIC_EDGE_FILENAME_RE.fullmatch(filename)
+        if match is None:
+            continue
+
+        cutoff = match.group("cutoff")
+        bigscape_class = match.group("bigscape_class")
+        directory = "primary_c0.3" if cutoff == "0.3" else f"c{cutoff}"
+        network_id = _network_id(f"{directory}/{filename}")
+        if network_id in seen_ids:
+            continue
+        seen_ids.add(network_id)
+
+        size_bytes = _int(row.get("size_bytes"))
+        browser_fetch_url = str(row.get("browser_fetch_url") or "")
+        download_url = str(row.get("download_url") or "")
+        renderable = bool(browser_fetch_url) and (
+            size_bytes == 0 or size_bytes <= REMOTE_EDGE_MAX_BYTES
+        )
+        reason = "" if renderable else "remote_size_limit"
+
+        resources.append(
+            PublicNetworkResource(
+                network_id=network_id,
+                cutoff=cutoff,
+                bigscape_class=bigscape_class,
+                filename=filename,
+                size_bytes=size_bytes,
+                sha256=str(row.get("sha256") or ""),
+                validation_status=str(row.get("validation_status") or ""),
+                browser_fetch_url=browser_fetch_url,
+                download_url=download_url,
+                renderable=renderable,
+                render_block_reason=reason,
+            )
+        )
+
+    return tuple(
+        sorted(
+            resources,
+            key=lambda item: (
+                item.cutoff != "0.3",
+                item.cutoff,
+                item.bigscape_class,
+                item.network_id,
+            ),
+        )
+    )
+
+
+def _public_network_resource_by_id(
+    network_id: str,
+) -> PublicNetworkResource | None:
+    return next(
+        (
+            resource
+            for resource in _public_network_resources()
+            if resource.network_id == network_id
+        ),
+        None,
+    )
+
+
 def _primary_public_resource_for_class(
     bigscape_class: str,
-) -> dict | None:
-    filename = f"{bigscape_class}_c0.3_bgs_edges.tsv"
-    for resource in resources_by_type("bigscape_public"):
-        if resource.get("filename") == filename:
-            return resource
-    return None
+) -> PublicNetworkResource | None:
+    return next(
+        (
+            resource
+            for resource in _public_network_resources()
+            if resource.cutoff == "0.3"
+            and resource.bigscape_class == bigscape_class
+        ),
+        None,
+    )
 
 
-def _public_resource_network_id(resource: dict) -> str:
-    filename = str(resource.get("filename") or "")
-    if not filename.endswith("_bgs_edges.tsv"):
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid public BiG-SCAPE edge resource",
-        )
-    return _network_id(f"primary_c0.3/{filename}")
+def _public_resource_entry(resource: PublicNetworkResource) -> dict:
+    return {
+        "network_id": resource.network_id,
+        "cutoff": resource.cutoff,
+        "class": resource.bigscape_class,
+        "node_count": 0,
+        "edge_count": 0,
+        "mapped_node_count": 0,
+        "unmapped_node_count": 0,
+        "mapped_edge_count": 0,
+        "malformed_rows": 0,
+        "size_bytes": resource.size_bytes,
+        "sha256": resource.sha256,
+        "public_safe": True,
+        "mapping_complete": True,
+        "renderable": resource.renderable,
+        "render_block_reason": resource.render_block_reason,
+        "download_key": None,
+        "download_url": resource.download_url or None,
+        "counts_known": False,
+        "edge_source": "public_resource",
+    }
 
 
 def _public_entry(entry: NetworkManifestEntry) -> dict:
@@ -350,6 +509,73 @@ def _build_network_payload(entry: NetworkManifestEntry) -> dict:
         "elements": {"nodes": nodes, "edges": cy_edges},
     }
     return payload
+
+
+def _build_remote_network_payload(
+    resource: PublicNetworkResource,
+) -> dict:
+    settings = get_settings()
+    edges = list(_read_remote_edges(resource.browser_fetch_url))
+    if len(edges) > settings.bigscape_max_edges:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "message": "Network exceeds the interactive viewer edge limit.",
+                "network": _public_resource_entry(resource),
+            },
+        )
+
+    node_ids = sorted(
+        {edge["source"] for edge in edges}
+        | {edge["target"] for edge in edges}
+    )
+    if len(node_ids) > settings.bigscape_max_nodes:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "message": "Network exceeds the interactive viewer node limit.",
+                "network": _public_resource_entry(resource),
+            },
+        )
+
+    metadata = _bgc_metadata(node_ids)
+    nodes = [
+        _cy_node(metadata[node_id])
+        for node_id in node_ids
+        if node_id in metadata
+    ]
+    valid_node_ids = {node["data"]["id"] for node in nodes}
+    cy_edges = [
+        _cy_edge(edge, index)
+        for index, edge in enumerate(edges, start=1)
+        if edge["source"] in valid_node_ids
+        and edge["target"] in valid_node_ids
+    ]
+
+    return {
+        "metadata": {
+            "source": "network",
+            "edge_source": "public_resource",
+            "network_id": resource.network_id,
+            "cutoff": resource.cutoff,
+            "bigscape_class": resource.bigscape_class,
+            "node_count": len(nodes),
+            "edge_count": len(cy_edges),
+            "original_node_count": len(node_ids),
+            "original_edge_count": len(edges),
+            "mapped_node_count": len(nodes),
+            "unmapped_node_count": len(node_ids) - len(nodes),
+            "mapped_edge_count": len(cy_edges),
+            "mapping_complete": len(nodes) == len(node_ids),
+            "renderable": True,
+            "edge_metric": "distance",
+            "edge_metric_note": (
+                "BiG-SCAPE distance is preserved from the mapped public "
+                "edge list; values are not inverted."
+            ),
+        },
+        "elements": {"nodes": nodes, "edges": cy_edges},
+    }
 
 
 def _parse_edges(handle):
