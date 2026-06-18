@@ -56,8 +56,38 @@ def test_max_page_size_is_enforced():
 def test_networks_page_lists_real_archives_only():
     response = client.get("/networks")
     assert response.status_code == 200
-    assert "networks.tar.gz" in response.text
-    assert "No example networks are fabricated" in response.text
+    assert "BiG-SCAPE gene cluster families" in response.text
+    assert "179" in response.text
+    assert "1,744" in response.text or "1,913" in response.text
+    assert "BGS-GCF-C03-" in response.text
+    assert "network archive" in response.text.lower()
+    assert "Direct Cytoscape.js rendering is deferred" not in response.text
+    assert "No example networks are fabricated" not in response.text
+    assert "Future bounded viewer controls" not in response.text
+
+
+def test_bigscape_summary_api_uses_public_counts_and_no_paths():
+    response = client.get("/api/bigscape/summary")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["primary_cutoff"] == "0.3"
+    assert payload["primary_gcf_count"] == 179
+    assert payload["assigned_bgc_count"] > 0
+    assert payload["bgc_count"] == 1913
+    assert payload["class_count"] > 0
+    assert "/Users/" not in response.text
+    assert "raw_import" not in response.text
+
+
+def test_bigscape_download_manifest_excludes_raw_and_empty_cytoscape():
+    payload = client.get("/api/downloads").json()
+    names = {item["filename"] for item in payload["items"]}
+    text = str(payload)
+    assert "bigscape_public_tables.tar.gz" in names
+    assert "bigscape_primary_c0.3_networks.tar.gz" in names
+    assert "cytoscape_files.tar.gz" not in names
+    assert "raw_import_2026-06-12" not in text
+    assert "/Users/" not in text
 
 
 def test_help_about_contact_are_public_no_login_pages():

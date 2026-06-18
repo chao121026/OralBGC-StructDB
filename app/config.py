@@ -35,7 +35,7 @@ class Settings:
         self.log_level = os.getenv("LOG_LEVEL", "info")
         self.secret_key = os.getenv("SECRET_KEY")
         self.version = os.getenv("PHRC_VERSION", "PHRC_BGCStructDB_v1")
-        self.contact_email = os.getenv("PHRC_CONTACT_EMAIL", "contact@example.edu")
+        self.contact_email = os.getenv("PHRC_CONTACT_EMAIL", "jz7982@nyu.edu")
         self.max_page_size = 100
         self.public_name = os.getenv("DATABASE_PUBLIC_NAME", "OralBGC-StructDB")
         self.subtitle = os.getenv(
@@ -116,8 +116,6 @@ class Settings:
 
     @property
     def preview_message(self) -> str | None:
-        if self.deployment_mode == "editor_preview":
-            return "Editorial preview. The permanent release URL and final data publication path will be finalized before public release."
         return None
 
 

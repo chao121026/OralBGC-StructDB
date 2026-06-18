@@ -12,3 +12,11 @@ app/data/*.sqlite.pre_*
 app/data/*.sqlite-wal
 app/data/*.sqlite-shm
 app/data/*.sqlite-journal
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local audit/build output
+annotation_audit/
+artifacts/

@@ -1,6 +1,6 @@
 # Public Accession Policy
 
-PHRC_BGCStructDB public records use stable `BGS` accessions that are independent
+OralBGC-StructDB public records use stable `BGS` accessions that are independent
 of source collection names, local filenames, pipeline row order, and mutable
 database row IDs.
 

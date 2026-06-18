@@ -1,9 +1,17 @@
 {% extends "base.html" %}{% block content %}
 <section class="page-shell section">
-  <div class="page-heading"><div><p class="eyebrow dark">Query</p><h1>Unified Search</h1><p>Search MAGs, BGCs, primary c0.3 GCFs, protein records, products, gene names, and Foldseek/PDB targets.</p></div></div>
-  <form class="filter-bar" method="get" action="/search"><label>Search term<input name="q" value="{{ q }}" minlength="2" placeholder="terpene, FAM_00390, protein ID, PDB target"></label><button class="btn btn-primary" type="submit">Search</button></form>
+  <div class="page-heading"><div><p class="eyebrow dark">Query</p><h1>Search OralBGC-StructDB</h1><p>Search by stable accession, MAG/BGC/GCF/protein/structure identifier, biosynthetic class, product, gene name, Foldseek/PDB target, or supported annotation keyword.</p></div></div>
+  <form class="filter-bar" method="get" action="/search"><label>Search term<input name="q" value="{{ q }}" minlength="2" placeholder="BGS-MAG-000283, NRPS, terpene"></label><button class="btn btn-primary" type="submit">Search</button></form>
   {% if error %}<p class="status-note">{{ error }}</p>{% endif %}
-  <section class="chart-card"><h2>Sequence Search</h2><p><strong>Planned for a future release.</strong> This interface is reserved for a future asynchronous BLASTp/MMseqs2 workflow. The public v1 site does not execute shell commands or expose an unfinished sequence-search backend.</p><textarea class="sequence-box" aria-label="Future FASTA input" placeholder=">protein_sequence"></textarea></section>
+  <section class="chart-card"><h2>Example searches</h2><p class="search-examples">
+    <code class="badge-token muted-badge">BGS-MAG-000283</code>
+    <code class="badge-token muted-badge">BGS-BGC-000001</code>
+    <code class="badge-token muted-badge">BGS-GCF-C03-0003</code>
+    <code class="badge-token muted-badge">BGS-PRT-000001</code>
+    <code class="badge-token muted-badge">BGS-STR-000001</code>
+    <code class="badge-token muted-badge">NRPS</code>
+    <code class="badge-token muted-badge">terpene</code>
+  </p></section>
   {% if results %}
     {% for group,payload in results.groups.items() %}
     <section class="section-subblock"><h2>{{ group|capitalize }} <span class="muted">({{ payload.total }})</span></h2>

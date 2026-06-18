@@ -3,12 +3,18 @@ from sqlalchemy import text
 from fastapi import HTTPException
 from app.config import get_settings
 from app.database import db_connect, table_exists
-from app.services.public_resources import direct_url
+from app.services.public_resources import direct_url, resources_by_type
 from app.security import reject_unsafe_identifier, safe_under
 
 RECOMMENDED = "recommended"
 ADVANCED = "advanced"
 DOCUMENTATION = "documentation"
+
+BIGSCAPE_VISITOR_FILENAMES = {
+    "bigscape_public_tables.tar.gz",
+    "bigscape_primary_c0.3_networks.tar.gz",
+    "bigscape_alternative_cutoff_networks.tar.gz",
+}
 
 PRESENTATION = {
     "b862769ad9efb444": {
@@ -245,6 +251,12 @@ def list_downloads():
 
 
 def build_download_page_context() -> dict:
+    visitor_sections = visitor_download_sections()
+    if visitor_sections:
+        return {
+            "visitor_download_sections": visitor_sections,
+            "download_count": sum(len(section["resources"]) for section in visitor_sections),
+        }
     items = list_downloads()
     recommended = [item for item in items if item["audience_level"] == RECOMMENDED and item["visible"]]
     advanced = [item for item in items if item["audience_level"] == ADVANCED and item["visible"]]
@@ -258,6 +270,97 @@ def build_download_page_context() -> dict:
         "advanced_groups": advanced_groups,
         "advanced_count": len(advanced),
         "download_count": len([item for item in items if item["visible"]]),
+    }
+
+
+def visitor_download_sections() -> list[dict]:
+    mag_resources = sorted(resources_by_type("mag_fasta"), key=lambda item: item["filename"])
+    bgc_resources = resources_by_type("bgc_bulk_archive")
+    bigscape_resources = [
+        item
+        for item in sorted(resources_by_type("bigscape_public"), key=lambda row: row["filename"])
+        if item["filename"] in BIGSCAPE_VISITOR_FILENAMES
+    ]
+    protein_resources = resources_by_type("protein_fasta")
+    structure_resources = sorted(resources_by_type("structure_archive"), key=lambda item: item["filename"])
+
+    sections = [
+        _visitor_section(
+            key="mag",
+            title="MAG assemblies",
+            description="Verified MAG assembly FASTA files are available on MAG detail pages. The first verified MAG FASTA is linked here as an example direct download.",
+            resources=mag_resources[:1],
+            action_label="Download MAG FASTA",
+            browse_label="Browse MAGs",
+            browse_url="/mags",
+            count_label=f"{len(mag_resources):,} verified individual MAG FASTA files",
+        ),
+        _visitor_section(
+            key="bgc",
+            title="BGC sequences",
+            description="The current release provides one complete accession-named antiSMASH GenBank archive. Individual BGC GenBank links are not shown because no one-to-one public map is verified for this release.",
+            resources=bgc_resources,
+            action_label="Download BGC archive",
+            browse_label="Browse BGCs",
+            browse_route="bgcs_page",
+            count_label="complete BGC archive",
+        ),
+        _visitor_section(
+            key="gcf",
+            title="GCF and BiG-SCAPE results",
+            description="Curated BiG-SCAPE result bundles for primary c0.3 networks, alternative-cutoff networks, and reusable public result tables.",
+            resources=bigscape_resources,
+            action_label="Download GCF/BiG-SCAPE results",
+            browse_label="Open network viewer",
+            browse_url="/networks",
+            count_label=f"{len(bigscape_resources):,} curated result bundles",
+        ),
+        _visitor_section(
+            key="protein",
+            title="Protein sequences",
+            description="Complete FASTA for all public BGC protein sequences in this release.",
+            resources=protein_resources,
+            action_label="Download complete protein FASTA",
+            browse_label="Browse proteins",
+            browse_url="/proteins",
+            count_label="complete protein FASTA",
+        ),
+        _visitor_section(
+            key="structure",
+            title="3D protein structures",
+            description="Predicted protein structure archives are provided by length class. Individual CIF downloads and the embedded viewer remain on structure detail pages.",
+            resources=structure_resources,
+            action_label="Download structure archive",
+            browse_label="Browse individual structures",
+            browse_url="/structures",
+            count_label=f"{len(structure_resources):,} structure archives",
+        ),
+    ]
+    return [section for section in sections if section["resources"] or section.get("browse_url")]
+
+
+def _visitor_section(
+    *,
+    key: str,
+    title: str,
+    description: str,
+    resources: list[dict],
+    action_label: str,
+    browse_label: str | None = None,
+    browse_route: str | None = None,
+    browse_url: str | None = None,
+    count_label: str | None = None,
+) -> dict:
+    return {
+        "key": key,
+        "title": title,
+        "description": description,
+        "resources": resources,
+        "action_label": action_label,
+        "browse_label": browse_label,
+        "browse_route": browse_route,
+        "browse_url": browse_url,
+        "count_label": count_label,
     }
 
 

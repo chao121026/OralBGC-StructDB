@@ -42,7 +42,7 @@ def test_downloads_api_exposes_controlled_presentation_metadata():
     recommended = [item for item in items if item.get('audience_level') == 'recommended']
     assert recommended
     assert all(item.get('recommended_rank') is not None for item in recommended)
-    assert all(item.get('download_url', '').startswith('/downloads/file/') for item in recommended)
+    assert all(item.get('download_url', '').startswith('https://g-f2d91c.6d8b.03c0.data.globus.org/') for item in recommended)
 
     component = next(item for item in items if item['filename'] == 'BGC_protein_summary.tsv')
     assert component['audience_level'] == 'advanced'
@@ -55,32 +55,30 @@ def test_downloads_api_exposes_controlled_presentation_metadata():
     for item in items:
         assert 'relative_path' not in item
         if item.get('download_url'):
-            assert item['download_url'].startswith('/downloads/file/')
+            assert item['download_url'].startswith('https://g-f2d91c.6d8b.03c0.data.globus.org/')
 
 
 def test_download_context_always_contains_advanced_groups():
     context = build_download_page_context()
-    assert "recommended_downloads" in context
-    assert "advanced_groups" in context
-    assert "advanced_count" in context
+    assert "visitor_download_sections" in context
     assert "download_count" in context
-    assert isinstance(context["recommended_downloads"], list)
-    assert isinstance(context["advanced_groups"], dict)
-
-    primary = [
-        item for item in context["recommended_downloads"]
-        if item["is_primary"]
-        and item["filename"] == "PHRC_integrated_BGC_protein_structure_summary.tsv"
+    assert isinstance(context["visitor_download_sections"], list)
+    assert [section["title"] for section in context["visitor_download_sections"]] == [
+        "MAG assemblies",
+        "BGC sequences",
+        "GCF and BiG-SCAPE results",
+        "Protein sequences",
+        "3D protein structures",
     ]
-    assert len(primary) == 1
-
-    mapping = [
-        item for items in context["advanced_groups"].values()
-        for item in items
-        if item["filename"] == "BGS_public_accession_mapping.tsv"
+    rendered_files = [
+        item["filename"]
+        for section in context["visitor_download_sections"]
+        for item in section["resources"]
     ]
-    assert not mapping
-    assert any(item["filename"] == "BGS_public_accession_mapping.tsv" for item in context["recommended_downloads"])
+    assert "PHRC_integrated_BGC_protein_structure_summary.tsv" not in rendered_files
+    assert "BGS_public_accession_mapping.tsv" not in rendered_files
+    assert "BGS_BGC_GBK_v1.0.tar.gz" in rendered_files
+    assert "BGS_BGC_proteins_v1.0.faa" in rendered_files
 
 
 def test_structure_route_rejects_traversal():
@@ -111,28 +109,27 @@ def test_checkpoint_pages_render():
     assert response.headers["location"].startswith("/proteins/BGS-PRT-")
 
 
-def test_downloads_page_renders_recommended_exports_and_collapsed_advanced():
+def test_downloads_page_renders_scientific_download_landing():
     client = TestClient(app)
     response = client.get('/downloads')
     assert response.status_code == 200
     html = response.text
 
-    assert 'Recommended data' in html
-    assert 'Record-level and filtered exports' in html
-    assert '<details class="advanced-downloads">' in html
-    assert '<summary>' in html
-    assert 'Recommended primary metadata table' in html
-    assert 'PHRC_integrated_BGC_protein_structure_summary.tsv' in html
+    assert 'MAG assemblies' in html
+    assert 'BGC sequences' in html
+    assert 'GCF and BiG-SCAPE results' in html
+    assert 'Protein sequences' in html
+    assert '3D protein structures' in html
+    assert 'Download BGC archive' in html
+    assert 'Download complete protein FASTA' in html
+    assert 'Browse individual structures' in html
     assert 'BGS_structures_short_v1.0.tar.gz' in html
-    assert 'md5sums.txt' in html
-
-    advanced_index = html.index('<details class="advanced-downloads">')
-    component_index = html.index('BGC_protein_summary.tsv')
-    assert component_index > advanced_index
-    assert 'BGS_public_accession_mapping.tsv' in html
+    assert 'PHRC_integrated_BGC_protein_structure_summary.tsv' not in html
+    assert 'BGS_public_accession_mapping.tsv' not in html
+    assert 'md5sums.txt' not in html
+    assert '.tsv' not in html
     assert 'region_gbk.tar.gz' not in html
-    assert '<details class="advanced-downloads">' in html
-    assert '<details class="advanced-downloads" open' not in html
+    assert '<details class="advanced-downloads">' not in html
 
     for sensitive in [
         'internal-priority',

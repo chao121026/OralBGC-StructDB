@@ -5,7 +5,7 @@
   "institution_short": "Public Health Research Center, NYU Abu Dhabi",
   "institution_url": "https://nyuad.nyu.edu/en/research/faculty-labs-and-projects/public-health-research-center.html",
   "public_release_label": "v1",
-  "contact_email": "contact@example.edu"
+  "contact_email": "jz7982@nyu.edu"
 }, true) %}
 <!doctype html>
 <html lang="en">
@@ -13,12 +13,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ site_brand.public_name }} · {{ site_brand.subtitle }}{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}{{ site_brand.subtitle }}. Developed at the {{ site_brand.institution }}.{% endblock %}">
+  <meta name="description" content="{% block meta_description %}{{ site_brand.subtitle }}. Developed by {{ site_brand.institution }}.{% endblock %}">
   <meta property="og:title" content="{% block og_title %}{{ site_brand.public_name }}{% endblock %}">
-  <meta property="og:description" content="{% block og_description %}{{ site_brand.subtitle }}. Developed at the {{ site_brand.institution }}.{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ site_brand.subtitle }}. Developed by {{ site_brand.institution }}.{% endblock %}">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="{{ site_brand.public_name }}">
-  <meta name="twitter:description" content="{{ site_brand.subtitle }}. Developed at the {{ site_brand.institution }}.">
+  <meta name="twitter:description" content="{{ site_brand.subtitle }}. Developed by {{ site_brand.institution }}.">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",

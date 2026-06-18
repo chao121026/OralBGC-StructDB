@@ -1,26 +1,26 @@
-<div class="table-wrap protein-desktop-table" aria-live="polite">
-  <table class="data-table mobile-cards">
+<div class="table-wrap protein-table-wrapper protein-desktop-table" aria-live="polite">
+  <table class="data-table mobile-cards protein-table">
     <caption>{{ data.total }} proteins match the current filters.</caption>
     <thead>
-      <tr><th>BGS protein accession</th><th>Product</th><th>BGC</th><th>Length</th><th>Structure</th><th>AF3 QC</th><th>Foldseek/PDB</th><th>Mean pLDDT</th><th>Match category</th><th>Detail</th></tr>
+      <tr><th class="accession-column">BGS protein accession</th><th class="product-column">Product</th><th class="bgc-column">BGC</th><th class="length-column">Length</th><th class="status-column">Structure</th><th class="status-column">AF3 QC</th><th class="annotation-column">Foldseek/PDB</th><th class="score-column">Mean pLDDT</th><th class="match-column">Match category</th><th class="action-column">Detail</th></tr>
     </thead>
     <tbody>
       {% for p in data['items'] %}
       <tr>
-        <td data-label="BGS protein accession" class="identifier-cell"><a class="mono" href="/proteins/{{ p.public_protein_id }}" title="{{ p.public_protein_id }}">{{ p.public_protein_id|short_id }}</a></td>
-        <td data-label="Product">{{ p.product or 'Unannotated' }}</td>
-        <td data-label="BGC" class="mono small-cell bgc-cell">
+        <td data-label="BGS protein accession" class="identifier-cell accession-column"><a class="mono" href="/proteins/{{ p.public_protein_id }}" title="{{ p.public_protein_id }}">{{ p.public_protein_id|short_id }}</a></td>
+        <td data-label="Product" class="product-column">{{ p.product or 'Unannotated' }}</td>
+        <td data-label="BGC" class="mono small-cell bgc-cell bgc-column">
           {% if p.public_bgc_id %}
           <a class="bgc-region-link" href="/bgcs/{{ p.public_bgc_id }}" title="{{ p.public_bgc_id }}" aria-label="BGC {{ p.public_bgc_id }}">{{ p.public_bgc_id.rsplit('_', 1)[-1] }}</a>
           {% endif %}
         </td>
-        <td data-label="Length">{{ p.sequence_length }} <span class="muted">{{ p.length_bucket|human_label }}</span></td>
-        <td data-label="Structure"><span class="badge-token {{ 'ok' if p.structure_available == '1' else 'muted-badge' }}">{{ 'Structure available' if p.structure_available == '1' else 'No CIF' }}</span></td>
-        <td data-label="AF3 QC"><span class="badge-token {{ 'ok' if p.af3_qc_available == '1' else 'muted-badge' }}">{{ 'AF3 QC available' if p.af3_qc_available == '1' else 'No AF3 QC' }}</span></td>
-        <td data-label="Foldseek/PDB"><span class="badge-token {{ 'ok' if p.foldseek_annotation_available == '1' else 'muted-badge' }}">{{ 'Foldseek/PDB annotation available' if p.foldseek_annotation_available == '1' else 'No Foldseek' }}</span></td>
-        <td data-label="Mean pLDDT">{{ p.mean_plddt|fmt_measure(1) if p.af3_qc_available == '1' and p.mean_plddt else 'Not available' }}</td>
-        <td data-label="Match category"><span class="badge-token pdb">{{ p.pdb_structural_match_category|human_label if p.pdb_structural_match_category else 'Not available' }}</span></td>
-        <td data-label="Detail"><a class="detail-link" href="/proteins/{{ p.public_protein_id }}">Open</a></td>
+        <td data-label="Length" class="length-column">{{ p.sequence_length }} <span class="muted">{{ p.length_bucket|human_label }}</span></td>
+        <td data-label="Structure" class="status-column"><span class="badge-token {{ 'ok' if p.structure_available == '1' else 'muted-badge' }}">{{ 'Structure available' if p.structure_available == '1' else 'No CIF' }}</span></td>
+        <td data-label="AF3 QC" class="status-column"><span class="badge-token {{ 'ok' if p.af3_qc_available == '1' else 'muted-badge' }}">{{ 'AF3 QC available' if p.af3_qc_available == '1' else 'No AF3 QC' }}</span></td>
+        <td data-label="Foldseek/PDB" class="annotation-column"><span class="badge-token {{ 'ok' if p.foldseek_annotation_available == '1' else 'muted-badge' }}">{{ 'Foldseek/PDB annotation available' if p.foldseek_annotation_available == '1' else 'No Foldseek' }}</span></td>
+        <td data-label="Mean pLDDT" class="score-column">{{ p.mean_plddt|fmt_measure(1) if p.af3_qc_available == '1' and p.mean_plddt else 'Not available' }}</td>
+        <td data-label="Match category" class="match-column"><span class="badge-token pdb">{{ p.pdb_structural_match_category|human_label if p.pdb_structural_match_category else 'Not available' }}</span></td>
+        <td data-label="Detail" class="action-column"><a class="detail-link" href="/proteins/{{ p.public_protein_id }}">Open</a></td>
       </tr>
       {% else %}
       <tr><td colspan="10" class="empty-state"><strong>No proteins match these filters.</strong><span>Clear filters or broaden the search term.</span></td></tr>

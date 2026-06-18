@@ -1,5 +1,47 @@
 {% extends "base.html" %}
 {% block content %}
+{% if visitor_download_sections is defined %}
+<section class="page-shell section">
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow dark">Public data</p>
+      <h1>Downloads</h1>
+      <p>Download the main scientific data products for this release. Administrative inventories, mappings, validation outputs, and release-control files are not shown here.</p>
+    </div>
+  </div>
+
+  <div class="download-category-grid scientific-download-grid">
+    {% for section in visitor_download_sections %}
+    <article class="download-card scientific-download-card" data-testid="scientific-download-section" data-download-section="{{ section.key }}">
+      <div class="download-card-main">
+        <div class="download-badges"><span class="badge-token">{{ section.count_label }}</span></div>
+        <h2>{{ section.title }}</h2>
+        <p class="download-description">{{ section.description }}</p>
+        <div class="download-actions scientific-download-actions">
+          {% if section.browse_url or section.browse_route %}<a class="btn btn-sm btn-outline-secondary" href="{{ section.browse_url if section.browse_url else url_for(section.browse_route) }}">{{ section.browse_label }}</a>{% endif %}
+          {% for item in section.resources %}
+          <a class="btn btn-sm btn-primary" href="{{ item.download_url }}">{{ section.action_label }}</a>
+          {% endfor %}
+        </div>
+        {% if section.resources %}
+        <details class="resource-details">
+          <summary>File details</summary>
+          <ul class="related-list">
+            {% for item in section.resources %}
+            <li>
+              <span class="mono identifier-inline">{{ item.filename }}</span>
+              <span>{{ '{:,}'.format(item.size_bytes or 0) }} bytes · {{ item.release_version }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
 {% set recommended_items = recommended_downloads | default([]) %}
 {% set grouped_advanced = advanced_groups | default({}) %}
 {% set advanced_file_count = advanced_count | default(0) %}
@@ -126,4 +168,5 @@
     {% endfor %}
   </details>
 </section>
+{% endif %}
 {% endblock %}

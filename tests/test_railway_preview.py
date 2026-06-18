@@ -96,7 +96,7 @@ def test_editor_preview_banner(monkeypatch):
     get_settings.cache_clear()
 
     assert response.status_code == 200
-    assert "Editorial preview. The permanent release URL and final data publication path will be finalized before public release." in response.text
+    assert "Editorial preview. The permanent release URL and final data publication path will be finalized before public release." not in response.text
 
 
 def test_direct_mag_resource_url_uses_configured_preview_root(monkeypatch):
