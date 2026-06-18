@@ -56,6 +56,9 @@ def downloads(request: Request):
         **build_download_page_context(),
         "active": "downloads",
     }
+    for section in context.get("visitor_download_sections", []):
+        if section.get("browse_route") and not section.get("browse_url"):
+            section["browse_url"] = request.url_for(section["browse_route"]).path
     return templates.TemplateResponse(request, 'downloads.html', context)
 
 
