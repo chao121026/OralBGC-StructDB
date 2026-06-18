@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 import sqlite3
 import tomllib
@@ -33,11 +34,17 @@ def test_root_health_endpoint_is_safe_and_railway_ready(monkeypatch):
     assert all(token not in response.text for token in forbidden)
 
 
-def test_railway_start_command_uses_direct_uvicorn():
-    expected = 'uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --proxy-headers'
+def test_railway_start_command_prepares_database_then_runs_uvicorn():
+    expected = (
+        'python scripts/prepare_runtime_database.py && '
+        'uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --proxy-headers'
+    )
 
-    assert expected in json.loads(open("railway.json").read())["deploy"]["startCommand"]
+    railway_config = json.loads(open("railway.json").read())
+
+    assert railway_config["deploy"]["startCommand"] == expected
     assert open("Procfile").read().strip() == f"web: {expected}"
+    assert Path("scripts/prepare_runtime_database.py").is_file()
     assert tomllib.loads(open("nixpacks.toml", "rb").read().decode())["start"]["cmd"] == expected
 
 

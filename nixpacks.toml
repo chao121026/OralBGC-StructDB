@@ -5,4 +5,4 @@ nixPkgs = ["python311"]
 cmds = ["python -m pip install --upgrade pip", "python -m pip install -r requirements.txt"]
 
 [start]
-cmd = "uvicorn app.main:app --host 0.0.0.0 --port \"$PORT\" --proxy-headers"
+cmd = 'python scripts/prepare_runtime_database.py && uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --proxy-headers'

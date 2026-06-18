@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -13,11 +16,13 @@ from sqlalchemy import text
 from app.config import get_settings
 from app.database import db_connect
 from app.services.downloads import list_downloads
+from app.services.public_resources import resources_by_type
 
 
 NETWORK_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 BGC_RE = re.compile(r"^BGS-BGC-\d{6}$")
 GCF_RE = re.compile(r"^BGS-GCF-C03-\d{4}$")
+REMOTE_EDGE_MAX_BYTES = 64 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -68,36 +73,83 @@ def network_json(network_id: str) -> dict:
 def gcf_network(gcf_accession: str) -> dict:
     if not GCF_RE.fullmatch(gcf_accession):
         raise HTTPException(status_code=400, detail="Invalid GCF accession")
+
     gcf = _gcf_metadata(gcf_accession)
     if not gcf:
         raise HTTPException(status_code=404, detail="GCF not found")
+
     members = _bgc_metadata_for_gcf(gcf_accession)
     member_ids = {row["bgc_accession"] for row in members}
-    if len(member_ids) > get_settings().bigscape_max_nodes:
-        raise HTTPException(status_code=413, detail={"message": "GCF exceeds the interactive viewer node limit."})
+
+    settings = get_settings()
+    if len(member_ids) > settings.bigscape_max_nodes:
+        raise HTTPException(
+            status_code=413,
+            detail={"message": "GCF exceeds the interactive viewer node limit."},
+        )
+
     entry = _primary_entry_for_class(gcf["bigscape_class"])
+    public_resource = None
+
+    if entry is not None:
+        edge_rows = _read_edges(entry)
+        network_id = entry.network_id
+        edge_source = "local_release"
+    else:
+        public_resource = _primary_public_resource_for_class(
+            gcf["bigscape_class"]
+        )
+        if public_resource is not None:
+            edge_rows = iter(
+                _read_remote_edges(public_resource["browser_fetch_url"])
+            )
+            network_id = _public_resource_network_id(public_resource)
+            edge_source = "public_resource"
+        else:
+            edge_rows = iter(())
+            network_id = None
+            edge_source = "unavailable"
+
     edges = []
-    if entry:
-        for edge in _read_edges(entry):
-            if edge["source"] in member_ids and edge["target"] in member_ids:
-                edges.append(edge)
-                if len(edges) > get_settings().bigscape_max_edges:
-                    raise HTTPException(status_code=413, detail={"message": "GCF exceeds the interactive viewer edge limit."})
+    for edge in edge_rows:
+        if edge["source"] not in member_ids or edge["target"] not in member_ids:
+            continue
+        edges.append(edge)
+        if len(edges) > settings.bigscape_max_edges:
+            raise HTTPException(
+                status_code=413,
+                detail={"message": "GCF exceeds the interactive viewer edge limit."},
+            )
+
     nodes = [_cy_node(row) for row in members]
     node_ids = {node["data"]["id"] for node in nodes}
-    cy_edges = [_cy_edge(edge, index) for index, edge in enumerate(edges, start=1) if edge["source"] in node_ids and edge["target"] in node_ids]
+    cy_edges = [
+        _cy_edge(edge, index)
+        for index, edge in enumerate(edges, start=1)
+        if edge["source"] in node_ids and edge["target"] in node_ids
+    ]
+
+    source_available = entry is not None or public_resource is not None
     payload = {
         "metadata": {
             "source": "gcf",
             "gcf_accession": gcf_accession,
             "bigscape_class": gcf["bigscape_class"],
             "cutoff": "0.3",
-            "network_id": entry.network_id if entry else None,
+            "network_id": network_id,
+            "edge_source": edge_source,
             "node_count": len(nodes),
             "edge_count": len(cy_edges),
             "renderable": True,
             "singleton": len(nodes) == 1,
-            "warnings": [] if entry else ["No primary c0.3 class network file is available for this GCF class."],
+            "warnings": (
+                []
+                if source_available
+                else [
+                    "No primary c0.3 class network file is available "
+                    "for this GCF class."
+                ]
+            ),
         },
         "elements": {"nodes": nodes, "edges": cy_edges},
     }
@@ -222,6 +274,26 @@ def _primary_entry_for_class(bigscape_class: str) -> NetworkManifestEntry | None
     return None
 
 
+def _primary_public_resource_for_class(
+    bigscape_class: str,
+) -> dict | None:
+    filename = f"{bigscape_class}_c0.3_bgs_edges.tsv"
+    for resource in resources_by_type("bigscape_public"):
+        if resource.get("filename") == filename:
+            return resource
+    return None
+
+
+def _public_resource_network_id(resource: dict) -> str:
+    filename = str(resource.get("filename") or "")
+    if not filename.endswith("_bgs_edges.tsv"):
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid public BiG-SCAPE edge resource",
+        )
+    return _network_id(f"primary_c0.3/{filename}")
+
+
 def _public_entry(entry: NetworkManifestEntry) -> dict:
     download_url = None
     if entry.download_key:
@@ -280,24 +352,77 @@ def _build_network_payload(entry: NetworkManifestEntry) -> dict:
     return payload
 
 
+def _parse_edges(handle):
+    for row in csv.DictReader(handle, delimiter="\t"):
+        source = row.get("source_bgc_accession") or ""
+        target = row.get("target_bgc_accession") or ""
+        if not BGC_RE.fullmatch(source) or not BGC_RE.fullmatch(target):
+            continue
+        yield {
+            "source": source,
+            "target": target,
+            "distance": row.get("distance") or "",
+            "jaccard": row.get("jaccard") or "",
+            "adjacency": row.get("adjacency") or "",
+            "dss": row.get("dss") or "",
+            "original_source_id": row.get("original_source_id") or "",
+            "original_target_id": row.get("original_target_id") or "",
+        }
+
+
 def _read_edges(entry: NetworkManifestEntry):
     path = _public_file(entry.public_relative_path)
-    with path.open(newline="") as handle:
-        for row in csv.DictReader(handle, delimiter="\t"):
-            source = row.get("source_bgc_accession") or ""
-            target = row.get("target_bgc_accession") or ""
-            if not BGC_RE.fullmatch(source) or not BGC_RE.fullmatch(target):
-                continue
-            yield {
-                "source": source,
-                "target": target,
-                "distance": row.get("distance") or "",
-                "jaccard": row.get("jaccard") or "",
-                "adjacency": row.get("adjacency") or "",
-                "dss": row.get("dss") or "",
-                "original_source_id": row.get("original_source_id") or "",
-                "original_target_id": row.get("original_target_id") or "",
-            }
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        yield from _parse_edges(handle)
+
+
+@lru_cache(maxsize=32)
+def _read_remote_edges(url: str) -> tuple[dict, ...]:
+    request = Request(
+        url,
+        headers={
+            "Accept": "text/tab-separated-values",
+            "User-Agent": "OralBGC-StructDB/1.0",
+        },
+    )
+
+    try:
+        with urlopen(request, timeout=30) as response:
+            content_length = response.headers.get("Content-Length")
+            if content_length:
+                try:
+                    advertised_size = int(content_length)
+                except ValueError:
+                    advertised_size = 0
+                if advertised_size > REMOTE_EDGE_MAX_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="The public BiG-SCAPE edge resource is too large.",
+                    )
+
+            raw = response.read(REMOTE_EDGE_MAX_BYTES + 1)
+    except HTTPException:
+        raise
+    except (HTTPError, URLError, OSError, TimeoutError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The public BiG-SCAPE edge resource could not be loaded.",
+        ) from exc
+
+    if len(raw) > REMOTE_EDGE_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="The public BiG-SCAPE edge resource is too large.",
+        )
+
+    try:
+        content = raw.decode("utf-8-sig")
+        return tuple(_parse_edges(io.StringIO(content)))
+    except (UnicodeError, csv.Error) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The public BiG-SCAPE edge resource is malformed.",
+        ) from exc
 
 
 def _cy_node(row: dict) -> dict:
