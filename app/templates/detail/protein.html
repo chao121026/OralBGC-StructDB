@@ -29,9 +29,9 @@
     <dl class="record-list compact-resource-list">
       <dt>Filename</dt><dd class="mono identifier-inline">{{ structure_resource.filename }}</dd>
       <dt>Size</dt><dd>{{ '{:,}'.format(structure_resource.size_bytes or 0) }} bytes</dd>
-      <dt>SHA-256</dt><dd class="mono identifier-inline">{{ structure_resource.sha256 }}</dd>
-      <dt>Release version</dt><dd>{{ structure_resource.release_version }}</dd>
-      <dt>Validation status</dt><dd>{{ structure_resource.validation_status|human_label }}</dd>
+      
+      
+      
     </dl>
       {% if protein.af3_qc_available != '1' and protein.foldseek_annotation_available != '1' %}
       <p class="status-note">Predicted structure available; AF3 QC and Foldseek annotations are not yet available in this release.</p>
